@@ -9,3 +9,17 @@ dist/
 *.db
 .DS_Store
 .idea/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+*.log
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+frontend/.vite/
+frontend/*.tsbuildinfo
