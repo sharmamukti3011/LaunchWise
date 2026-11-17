@@ -28,8 +28,9 @@ Behavior: the original idea is always an option; the agent can recommend keeping
 
 ## Market dataset (`data/market_opportunities.json`)
 - 8-12 hand-curated Pune bakery opportunities, validated with Pydantic at startup.
-- Fields: id, title, location, category, signal_summary, evidence, source_name, source_url, event_date, retrieved_date, verification_status (verified / single_source / unverified_sample), verified_by, verified_on, signal_strength (low/medium/high), required_skills, required_equipment, lead_time_days, label.
-- Past event dates are excluded from recommendations. Include at least one opportunity the agent should reject. Use qualitative signal strength unless a source gives a figure. Never fabricate an event date.
+- Fields: id, title, location, category, signal_summary, evidence, source_name, source_url, event_date, is_evergreen, retrieved_date, verification_status (verified / single_source / unverified_sample), verified_by, verified_on, signal_strength (low/medium/high), required_skills, required_equipment, lead_time_days, label.
+- `is_evergreen` (bool, default false): `event_date` is required unless `is_evergreen` is true. Evergreen entries never expire.
+- Past event dates are excluded from recommendations: a non-evergreen entry with a past date scores 0 on market signal and is non-viable (reason "event passed"). Include at least one opportunity the agent should reject. Use qualitative signal strength unless a source gives a figure. Never fabricate an event date.
 
 ## Storefront and contact form
 - Template renders brand, tagline, products, prices, availability, capacity note, contact form from StorefrontConfig.
