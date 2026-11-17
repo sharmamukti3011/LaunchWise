@@ -5,8 +5,11 @@ from app.engine.feasibility import (
     BreakEvenPoint,
     BudgetCheck,
     BusinessOption,
-    ConstraintProfile,
+    FeasibilityInputs,
     FeasibilityResult,
+    InputEcho,
+    Source,
+    Sourced,
     run_feasibility,
 )
 
@@ -15,7 +18,10 @@ __all__ = [
     "BreakEvenPoint",
     "BudgetCheck",
     "BusinessOption",
-    "ConstraintProfile",
+    "FeasibilityInputs",
     "FeasibilityResult",
+    "InputEcho",
+    "Source",
+    "Sourced",
     "run_feasibility",
 ]
