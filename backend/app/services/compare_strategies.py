@@ -8,14 +8,21 @@ non-viable ones, and a recommendation is only made when at least one option is v
 from datetime import date
 from decimal import Decimal
 
-from app.engine.feasibility import BusinessOption, FeasibilityResult, run_feasibility
+from app.engine.feasibility import (
+    HUNDRED,
+    BusinessOption,
+    FeasibilityResult,
+    run_feasibility,
+)
 from app.services.profile_mapper import to_feasibility_inputs
 from app.services.scoring import (
+    NO_EVIDENCE_SCORE,
     budget_fit,
     capacity_fit,
     margin_fit,
     market_signal_fit,
     missing_items,
+    rupees,
     skill_equipment_fit,
 )
 from app.services.strategy_models import (
@@ -92,13 +99,8 @@ def _viability_issues(
     return issues
 
 
-def _score_option(
-    profile: ConstraintProfile,
-    option: StrategyOption,
-    opportunity: Opportunity | None,
-    today: date,
-) -> OptionScore:
-    result = run_feasibility(
+def _feasibility(profile: ConstraintProfile, option: StrategyOption) -> FeasibilityResult:
+    return run_feasibility(
         to_feasibility_inputs(profile),
         BusinessOption(
             price=option.price,
@@ -107,6 +109,15 @@ def _score_option(
         ),
         include_working_capital=True,
     )
+
+
+def _score_option(
+    profile: ConstraintProfile,
+    option: StrategyOption,
+    result: FeasibilityResult,
+    opportunity: Opportunity | None,
+    today: date,
+) -> OptionScore:
     scores: list[DimensionScore] = [
         margin_fit(result),
         budget_fit(result),
@@ -127,8 +138,40 @@ def _score_option(
     )
 
 
+def _engine_assumption_caveats(result: FeasibilityResult) -> list[Caveat]:
+    caveats: list[Caveat] = []
+    working_capital = result.budget_check.working_capital
+    if working_capital is not None:
+        caveats.append(
+            Caveat(
+                kind="engine_assumption",
+                message=(
+                    f"working capital reserve {rupees(working_capital.value)} is an assumption: "
+                    "first week's variable cost at full capacity"
+                ),
+                items=["working_capital"],
+            )
+        )
+    levels = result.break_even
+    shares = ", ".join(
+        f"{name} {(point.demand_factor.value * HUNDRED).quantize(Decimal(1))}%"
+        for name, point in (("low", levels.low), ("medium", levels.medium), ("high", levels.high))
+    )
+    caveats.append(
+        Caveat(
+            kind="engine_assumption",
+            message=f"demand factors are assumptions: {shares} of weekly capacity sold",
+            items=["demand_factors"],
+        )
+    )
+    return caveats
+
+
 def _caveats(
-    profile: ConstraintProfile, option: StrategyOption, opportunity: Opportunity | None
+    profile: ConstraintProfile,
+    option: StrategyOption,
+    result: FeasibilityResult,
+    opportunity: Opportunity | None,
 ) -> list[Caveat]:
     caveats: list[Caveat] = []
     for kind, noun, required, have in (
@@ -153,7 +196,20 @@ def _caveats(
                     items=[name],
                 )
             )
-    if opportunity is not None and opportunity.verification_status != "verified":
+    caveats.extend(_engine_assumption_caveats(result))
+    if opportunity is None:
+        # Validation lets only the original omit a link, so this is the original idea.
+        caveats.append(
+            Caveat(
+                kind="no_market_evidence",
+                message=(
+                    "no market evidence for the original idea: its market signal is a neutral "
+                    f"{NO_EVIDENCE_SCORE}, not a finding"
+                ),
+                items=[],
+            )
+        )
+    elif opportunity.verification_status != "verified":
         status = opportunity.verification_status.replace("_", " ")
         caveats.append(
             Caveat(
@@ -173,10 +229,12 @@ def compare_strategies(
 ) -> RankedStrategies:
     _validate(options, opportunities)
     by_id = {o.id: o for o in opportunities}
+    results = {option.id: _feasibility(profile, option) for option in options}
     scored = [
         _score_option(
             profile,
             option,
+            results[option.id],
             by_id[option.opportunity_id] if option.opportunity_id else None,
             today,
         )
@@ -193,5 +251,5 @@ def compare_strategies(
         ranked=scored,
         recommended_id=best.option_id,
         keep_original=best.is_original,
-        caveats=_caveats(profile, chosen, linked),
+        caveats=_caveats(profile, chosen, results[chosen.id], linked),
     )

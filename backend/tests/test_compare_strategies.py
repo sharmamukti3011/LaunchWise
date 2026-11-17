@@ -10,7 +10,13 @@ import pytest
 
 from app.engine.feasibility import Sourced
 from app.services.compare_strategies import WEIGHTS, StrategyComparisonError, compare_strategies
-from app.services.strategy_models import Opportunity, OptionScore, RankedStrategies, StrategyOption
+from app.services.strategy_models import (
+    Caveat,
+    Opportunity,
+    OptionScore,
+    RankedStrategies,
+    StrategyOption,
+)
 from tests.pune_fixtures import TODAY, assumed, opportunity, option, profile
 
 D = Decimal
@@ -351,7 +357,7 @@ def test_user_provided_inputs_are_not_caveated_as_assumptions() -> None:
         profile(hours_per_week=user), [option(minutes_per_unit=mins)], [opportunity()], TODAY
     )
     assert result.recommended_id == "orig"
-    assert result.caveats == []
+    assert "assumption" not in kinds(result)
 
 
 def test_only_the_assumption_actually_used_is_listed() -> None:
@@ -397,12 +403,86 @@ def test_caveats_empty_when_nothing_is_recommended() -> None:
     assert result.caveats == []
 
 
-def test_caveat_order_is_missing_then_assumptions_then_verification() -> None:
+def test_caveat_order_is_missing_then_assumptions_then_evidence() -> None:
     opp = opportunity(verification_status="single_source", verified_by=None, verified_on=None)
     result = run([thin_original(), market_stall()], [opp])
     assert kinds(result) == [
         "missing_equipment",
         "assumption",
         "assumption",
+        "engine_assumption",
+        "engine_assumption",
         "verification",
     ]
+
+
+# ---- engine assumptions and "no market evidence" caveats --------------------------------------
+
+
+def engine_caveats(result: RankedStrategies) -> list[Caveat]:
+    return [c for c in result.caveats if c.kind == "engine_assumption"]
+
+
+def test_engine_assumptions_are_listed_with_their_values() -> None:
+    # Original: 350 per unit x 6 units a week = 2,100 working capital.
+    result = run([option()])
+    working_capital, demand = engine_caveats(result)
+    assert working_capital.items == ["working_capital"]
+    assert "₹2,100.00" in working_capital.message
+    assert "first week's variable cost at full capacity" in working_capital.message
+    assert demand.items == ["demand_factors"]
+    for expected in ("low 25%", "medium 50%", "high 100%"):
+        assert expected in demand.message
+    assert all("assumption" in c.message for c in (working_capital, demand))
+
+
+def test_working_capital_value_follows_the_recommended_option() -> None:
+    # Stall: 400 per unit x 6 units a week = 2,400.
+    result = run([thin_original(), market_stall()])
+    assert result.recommended_id == "stall"
+    working_capital = engine_caveats(result)[0]
+    assert "₹2,400.00" in working_capital.message
+    assert "₹3,000.00" not in working_capital.message  # the thin original's would be 3,000
+
+
+def test_no_engine_assumption_caveats_when_nothing_is_recommended() -> None:
+    assert engine_caveats(run([option(fixed_startup_costs=D("9000"))])) == []
+
+
+def test_no_market_evidence_caveat_for_recommended_unlinked_original() -> None:
+    stall = no_skills_stall()  # non-viable, so the original is recommended
+    result = run([option(), stall])
+    assert result.recommended_id == "orig"
+    (caveat,) = [c for c in result.caveats if c.kind == "no_market_evidence"]
+    assert "no market evidence" in caveat.message
+    assert "50" in caveat.message  # the neutral score is not a finding
+    assert caveat.items == []
+    assert "verification" not in kinds(result)
+
+
+def test_no_market_evidence_caveat_is_last() -> None:
+    assert kinds(run([option()]))[-1] == "no_market_evidence"
+
+
+def test_no_evidence_caveat_absent_when_original_is_linked_to_an_opportunity() -> None:
+    result = run([option(opportunity_id=OPP_ID)])
+    assert result.recommended_id == "orig"
+    assert "no_market_evidence" not in kinds(result)
+
+
+def test_no_evidence_caveat_absent_when_an_alternative_is_recommended() -> None:
+    result = run([thin_original(), market_stall()])
+    assert result.recommended_id == "stall"
+    assert "no_market_evidence" not in kinds(result)
+
+
+def test_no_evidence_caveat_absent_when_nothing_is_recommended() -> None:
+    result = run([option(fixed_startup_costs=D("9000"))])
+    assert "no_market_evidence" not in kinds(result)
+
+
+def test_verification_and_no_evidence_caveats_are_mutually_exclusive() -> None:
+    weak = opportunity(verification_status="single_source", verified_by=None, verified_on=None)
+    for options in ([option(opportunity_id=OPP_ID)], [option()], [thin_original(), market_stall()]):
+        found = set(kinds(run(options, [weak]))) & {"verification", "no_market_evidence"}
+        assert len(found) == 1

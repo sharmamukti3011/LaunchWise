@@ -31,7 +31,7 @@ SIGNAL_POINTS: dict[SignalStrength, int] = {"low": 30, "medium": 60, "high": 90}
 UNVERIFIED_DEDUCTION = 15
 
 
-def _rupees(value: Decimal) -> str:
+def rupees(value: Decimal) -> str:
     return f"₹{value.quantize(PAISE):,.2f}"
 
 
@@ -56,7 +56,7 @@ def margin_fit(result: FeasibilityResult) -> DimensionScore:
         return DimensionScore(
             dimension="margin",
             score=0,
-            reason=f"margin {pct}% of price ({_rupees(margin)} per unit) leaves nothing to earn",
+            reason=f"margin {pct}% of price ({rupees(margin)} per unit) leaves nothing to earn",
         )
     score = _clamp(_floor_int(pct / FULL_MARK_MARGIN_PCT * HUNDRED))
     medium = result.break_even.medium
@@ -66,8 +66,8 @@ def margin_fit(result: FeasibilityResult) -> DimensionScore:
         dimension="margin",
         score=score,
         reason=(
-            f"margin {pct}% of price ({_rupees(margin)} per unit); weekly contribution at "
-            f"medium demand {_rupees(weekly)} (assumption: {share}% of capacity sold)"
+            f"margin {pct}% of price ({rupees(margin)} per unit); weekly contribution at "
+            f"medium demand {rupees(weekly)} (assumption: {share}% of capacity sold)"
         ),
     )
 
@@ -78,16 +78,16 @@ def budget_fit(result: FeasibilityResult) -> DimensionScore:
     total = check.total_required.value
     wc = check.working_capital.value if check.working_capital else Decimal(0)
     breakdown = (
-        f"startup {_rupees(check.startup_cost.value)} + working capital {_rupees(wc)} "
-        f"(assumption: first week's variable cost at full capacity) = {_rupees(total)}"
+        f"startup {rupees(check.startup_cost.value)} + working capital {rupees(wc)} "
+        f"(assumption: first week's variable cost at full capacity) = {rupees(total)}"
     )
     if not check.within_budget:
         return DimensionScore(
             dimension="budget",
             score=0,
             reason=(
-                f"over budget: {breakdown} against budget {_rupees(budget)}, "
-                f"short by {_rupees(check.shortfall.value)}"
+                f"over budget: {breakdown} against budget {rupees(budget)}, "
+                f"short by {rupees(check.shortfall.value)}"
             ),
         )
     headroom = check.headroom.value
@@ -96,8 +96,8 @@ def budget_fit(result: FeasibilityResult) -> DimensionScore:
     return DimensionScore(
         dimension="budget",
         score=score,
-        reason=f"within budget: {breakdown} against budget {_rupees(budget)}, "
-        f"headroom {_rupees(headroom)}",
+        reason=f"within budget: {breakdown} against budget {rupees(budget)}, "
+        f"headroom {rupees(headroom)}",
     )
 
 

@@ -117,7 +117,14 @@ class OptionScore(BaseModel):
     viability_issues: list[str]
 
 
-CaveatKind = Literal["missing_skills", "missing_equipment", "assumption", "verification"]
+CaveatKind = Literal[
+    "missing_skills",
+    "missing_equipment",
+    "assumption",
+    "engine_assumption",
+    "verification",
+    "no_market_evidence",
+]
 
 
 class Caveat(BaseModel):
@@ -127,7 +134,7 @@ class Caveat(BaseModel):
 
     kind: CaveatKind
     message: str = Field(min_length=1)
-    items: list[str]  # skill/equipment names, input names, or opportunity ids
+    items: list[str]  # skill/equipment names, assumption names, or opportunity ids
 
 
 class RankedStrategies(BaseModel):
