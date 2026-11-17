@@ -87,3 +87,16 @@ class Opportunity(BaseModel):
     def has_passed(self, today: date) -> bool:
         """True for a dated entry whose event is before `today`. Evergreen never passes."""
         return not self.is_evergreen and self.event_date is not None and self.event_date < today
+
+
+DimensionName = Literal["margin", "budget", "capacity", "skill_equipment", "market_signal"]
+
+
+class DimensionScore(BaseModel):
+    """A 0-100 score for one dimension, with the figures behind it in plain words."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dimension: DimensionName
+    score: Annotated[int, Field(ge=0, le=100)]
+    reason: str = Field(min_length=1)
