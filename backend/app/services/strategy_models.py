@@ -5,6 +5,7 @@ given by the user or is our assumption. The comparison reasons repeat that tag.
 """
 
 from datetime import date
+from decimal import Decimal
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
@@ -100,3 +101,27 @@ class DimensionScore(BaseModel):
     dimension: DimensionName
     score: Annotated[int, Field(ge=0, le=100)]
     reason: str = Field(min_length=1)
+
+
+class OptionScore(BaseModel):
+    """All five dimension scores for one option, the weighted total and whether it is viable."""
+
+    model_config = ConfigDict(frozen=True)
+
+    option_id: str
+    title: str
+    is_original: bool
+    scores: list[DimensionScore]
+    total: Decimal
+    viable: bool
+    viability_issues: list[str]
+
+
+class RankedStrategies(BaseModel):
+    """Best first. `recommended_id` is None when no option is viable."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ranked: list[OptionScore]
+    recommended_id: str | None
+    keep_original: bool
