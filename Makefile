@@ -22,7 +22,7 @@ fmt:
 	cd $(BACKEND) && ../$(BIN)/ruff format .
 
 run-backend:
-	cd $(BACKEND) && ../$(BIN)/uvicorn app.main:app --reload --port 8000
+	cd $(BACKEND) && ../$(BIN)/uvicorn app.main:create_app --factory --reload --port 8000
 
 run-frontend:
 	cd frontend && npm run dev
