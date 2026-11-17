@@ -5,11 +5,13 @@ In memory only, with an injected clock. Two rules shape the API:
 - Every caller passes a Pydantic model; the hash is always `hash_model(model)`, never caller-made.
 """
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Literal, Protocol
+from functools import wraps
+from typing import Concatenate, Literal, ParamSpec, Protocol, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -186,6 +188,29 @@ class _Run:
     approved_strategy_hash: str | None = None
 
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _locked(
+    method: "Callable[Concatenate[ApprovalService, _P], _R]",
+) -> "Callable[Concatenate[ApprovalService, _P], _R]":
+    """Run a public command under the service lock.
+
+    Check-then-spend must be atomic: FastAPI runs sync routes in a thread pool, and without
+    this two concurrent deploys could both pass the approval check before either consumes it.
+    The lock is reentrant so commands may call each other, and it is never held while the
+    deployer runs (DeployGuard calls the deployer between two separate transitions).
+    """
+
+    @wraps(method)
+    def wrapper(self: "ApprovalService", /, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 # ---- service ----------------------------------------------------------------------------------
 
 
@@ -204,6 +229,7 @@ class ApprovalService:
         self.audit = audit or AuditLog()
         self._runs: dict[str, _Run] = {}
         self._approvals: dict[str, Approval] = {}  # insertion order = creation order
+        self._lock = threading.RLock()
 
     # -- reads --
 
@@ -221,6 +247,7 @@ class ApprovalService:
 
     # -- commands --
 
+    @_locked
     def start_run(self, run_id: str, actor: str) -> State:
         if run_id in self._runs:
             raise self._refuse(RunExists("run already exists"), "run_started", actor, run_id)
@@ -228,6 +255,7 @@ class ApprovalService:
         self._log("run_started", actor, run_id=run_id, to_state=State.DRAFT)
         return State.DRAFT
 
+    @_locked
     def request_approval(
         self, run_id: str, action: str, payload: BaseModel, actor: str
     ) -> Approval:
@@ -253,6 +281,7 @@ class ApprovalService:
         self._log(event, actor, run_id=run_id, approval=approval)
         return approval
 
+    @_locked
     def decide(
         self, approval_id: str, payload: BaseModel, granted: bool, decided_by: str
     ) -> Approval:
@@ -290,6 +319,7 @@ class ApprovalService:
         )
         return decided
 
+    @_locked
     def consume(
         self, approval_id: str, run_id: str, action: str, payload: BaseModel, actor: str
     ) -> Approval:
@@ -310,8 +340,15 @@ class ApprovalService:
             raise self._refuse(error, event, actor, run_id, approval, digest)
         return self._spend(approval, actor)
 
+    @_locked
     def transition(
-        self, run_id: str, to_state: State, actor: str, payload: BaseModel | None = None
+        self,
+        run_id: str,
+        to_state: State,
+        actor: str,
+        payload: BaseModel | None = None,
+        *,
+        detail: str | None = None,
     ) -> State:
         """The only function that changes run state. Gated moves verify the payload's hash."""
         event: AuditEvent = "transition"
@@ -337,7 +374,15 @@ class ApprovalService:
         if to_state == State.DRAFT:
             run.approved_strategy_hash = None  # a restarted strategy needs a fresh approval
         run.state = to_state
-        self._log(event, actor, run_id=run_id, from_state=src, to_state=to_state, approval=approval)
+        self._log(
+            event,
+            actor,
+            run_id=run_id,
+            from_state=src,
+            to_state=to_state,
+            approval=approval,
+            detail=detail,
+        )
         return to_state
 
     # -- internals --

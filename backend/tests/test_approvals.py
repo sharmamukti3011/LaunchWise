@@ -4,13 +4,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from app.engine.approval_payload import hash_model
-from app.engine.approval_rules import InvalidTransition, State
+from app.engine.approval_rules import InvalidTransition
 from app.services.approvals import (
     ActionMismatch,
-    Approval,
     ApprovalAlreadyUsed,
     ApprovalDenied,
     ApprovalError,
@@ -23,7 +22,6 @@ from app.services.approvals import (
     AuditLog,
     AuditRecord,
     InvalidPayload,
-    LaunchPayload,
     PayloadMismatch,
     RunExists,
     RunMismatch,
@@ -32,83 +30,21 @@ from app.services.approvals import (
     UnknownAction,
     WrongState,
 )
+from tests.approval_helpers import (
+    LAUNCH,
+    STRATEGY,
+    TTL,
+    S,
+    approve,
+    events,
+    launch_for,
+    make_service,
+    strategy,
+    to_launch_approved,
+    to_proposed,
+    to_strategy_approved,
+)
 from tests.fakes import FakeClock
-
-S = State
-STRATEGY = "approve_strategy"
-LAUNCH = "approve_launch"
-TTL = timedelta(minutes=15)
-
-
-class Strategy(BaseModel):
-    option_id: str
-    price: Decimal
-    skills: list[str]
-
-
-class Launch(LaunchPayload):
-    site_title: str
-
-
-def strategy(**overrides: object) -> Strategy:
-    data: dict[str, object] = {
-        "option_id": "opt-marker-7",
-        "price": Decimal("800"),
-        "skills": ["baking", "decorating"],
-    }
-    data.update(overrides)
-    return Strategy.model_validate(data)
-
-
-def launch_for(strat: Strategy, title: str = "Weekend cakes") -> Launch:
-    return Launch(strategy_payload_hash=hash_model(strat), site_title=title)
-
-
-def make_service(clock: FakeClock, **kwargs: object) -> ApprovalService:
-    counter = iter(range(1, 1000))
-    return ApprovalService(clock, id_factory=lambda: f"ap-{next(counter)}", **kwargs)  # type: ignore[arg-type]
-
-
-@pytest.fixture
-def clock() -> FakeClock:
-    return FakeClock()
-
-
-@pytest.fixture
-def svc(clock: FakeClock) -> ApprovalService:
-    return make_service(clock)
-
-
-def approve(
-    svc: ApprovalService, action: str, payload: BaseModel, run: str = "r1", grant: bool = True
-) -> Approval:
-    approval = svc.request_approval(run, action, payload, "agent")
-    svc.decide(approval.approval_id, payload, grant, "user")
-    return approval
-
-
-def to_proposed(svc: ApprovalService, run: str = "r1") -> None:
-    svc.start_run(run, "agent")
-    svc.transition(run, S.STRATEGY_PROPOSED, "agent")
-
-
-def to_strategy_approved(svc: ApprovalService, strat: Strategy, run: str = "r1") -> Approval:
-    to_proposed(svc, run)
-    approval = approve(svc, STRATEGY, strat, run)
-    svc.transition(run, S.STRATEGY_APPROVED, "user", strat)
-    return approval
-
-
-def to_launch_approved(svc: ApprovalService, strat: Strategy, run: str = "r1") -> Approval:
-    to_strategy_approved(svc, strat, run)
-    approval = approve(svc, LAUNCH, launch_for(strat), run)
-    svc.transition(run, S.LAUNCH_APPROVED, "user", launch_for(strat))
-    return approval
-
-
-def events(svc: ApprovalService) -> list[tuple[str, str]]:
-    return [(r.event, r.outcome) for r in svc.audit.records]
-
 
 # ---- runs and plain transitions ---------------------------------------------------------------
 
