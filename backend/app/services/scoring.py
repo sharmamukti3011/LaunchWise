@@ -130,7 +130,7 @@ def _normalise(items: list[str]) -> list[str]:
     return list(dict.fromkeys(item.strip().lower() for item in items if item.strip()))
 
 
-def _missing(required: list[str], have: list[str]) -> list[str]:
+def missing_items(required: list[str], have: list[str]) -> list[str]:
     owned = set(_normalise(have))
     return [item for item in _normalise(required) if item not in owned]
 
@@ -141,8 +141,8 @@ def skill_equipment_fit(profile: ConstraintProfile, option: StrategyOption) -> D
         return DimensionScore(
             dimension="skill_equipment", score=100, reason="nothing required, so nothing missing"
         )
-    missing_skills = _missing(option.required_skills, profile.skills)
-    missing_equipment = _missing(option.required_equipment, profile.equipment)
+    missing_skills = missing_items(option.required_skills, profile.skills)
+    missing_equipment = missing_items(option.required_equipment, profile.equipment)
     missing = len(missing_skills) + len(missing_equipment)
     score = _floor_int(Decimal(required - missing) / Decimal(required) * HUNDRED)
     if missing == 0:

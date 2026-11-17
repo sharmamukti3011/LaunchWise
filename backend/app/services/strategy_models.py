@@ -117,11 +117,28 @@ class OptionScore(BaseModel):
     viability_issues: list[str]
 
 
+CaveatKind = Literal["missing_skills", "missing_equipment", "assumption", "verification"]
+
+
+class Caveat(BaseModel):
+    """Something the user should know before relying on the recommendation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: CaveatKind
+    message: str = Field(min_length=1)
+    items: list[str]  # skill/equipment names, input names, or opportunity ids
+
+
 class RankedStrategies(BaseModel):
-    """Best first. `recommended_id` is None when no option is viable."""
+    """Best first. `recommended_id` is None when no option is viable.
+
+    `caveats` describe the recommended option only; empty when nothing is recommended.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     ranked: list[OptionScore]
     recommended_id: str | None
     keep_original: bool
+    caveats: list[Caveat] = Field(default_factory=list)

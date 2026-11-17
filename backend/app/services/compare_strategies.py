@@ -15,9 +15,11 @@ from app.services.scoring import (
     capacity_fit,
     margin_fit,
     market_signal_fit,
+    missing_items,
     skill_equipment_fit,
 )
 from app.services.strategy_models import (
+    Caveat,
     ConstraintProfile,
     DimensionName,
     DimensionScore,
@@ -65,7 +67,10 @@ def _validate(options: list[StrategyOption], opportunities: list[Opportunity]) -
 
 
 def _viability_issues(
-    result: FeasibilityResult, opportunity: Opportunity | None, today: date
+    result: FeasibilityResult,
+    scores: list[DimensionScore],
+    opportunity: Opportunity | None,
+    today: date,
 ) -> list[str]:
     issues = []
     if not result.budget_check.within_budget:
@@ -74,6 +79,16 @@ def _viability_issues(
         issues.append("no positive margin")
     if opportunity is not None and opportunity.has_passed(today):
         issues.append("event passed")
+    # A zero here means the plan cannot be run at all, however well it scores elsewhere.
+    by_dimension = {s.dimension: s for s in scores}
+    gates: list[tuple[DimensionName, str]] = [
+        ("skill_equipment", "skill and equipment"),
+        ("capacity", "capacity"),
+    ]
+    for dimension, label in gates:
+        gate = by_dimension[dimension]
+        if gate.score == 0:
+            issues.append(f"{label} fit is 0 ({gate.reason})")
     return issues
 
 
@@ -100,7 +115,7 @@ def _score_option(
         market_signal_fit(option, opportunity, today),
     ]
     weighted = sum(Decimal(s.score * WEIGHTS[s.dimension]) for s in scores)
-    issues = _viability_issues(result, opportunity, today)
+    issues = _viability_issues(result, scores, opportunity, today)
     return OptionScore(
         option_id=option.id,
         title=option.title,
@@ -110,6 +125,44 @@ def _score_option(
         viable=not issues,
         viability_issues=issues,
     )
+
+
+def _caveats(
+    profile: ConstraintProfile, option: StrategyOption, opportunity: Opportunity | None
+) -> list[Caveat]:
+    caveats: list[Caveat] = []
+    for kind, noun, required, have in (
+        ("missing_skills", "skills", option.required_skills, profile.skills),
+        ("missing_equipment", "equipment", option.required_equipment, profile.equipment),
+    ):
+        missing = missing_items(required, have)
+        if missing:
+            caveats.append(
+                Caveat(kind=kind, message=f"missing {noun}: {', '.join(missing)}", items=missing)
+            )
+    # Only inputs tagged "assumption" are caveated; user-provided figures are not.
+    for name, sourced in (
+        ("hours_per_week", profile.hours_per_week),
+        ("minutes_per_unit", option.minutes_per_unit),
+    ):
+        if sourced.source == "assumption":
+            caveats.append(
+                Caveat(
+                    kind="assumption",
+                    message=f"{name} ({sourced.value}) is an assumption, not user data",
+                    items=[name],
+                )
+            )
+    if opportunity is not None and opportunity.verification_status != "verified":
+        status = opportunity.verification_status.replace("_", " ")
+        caveats.append(
+            Caveat(
+                kind="verification",
+                message=f"market evidence {opportunity.id} is {status}, below verified",
+                items=[opportunity.id],
+            )
+        )
+    return caveats
 
 
 def compare_strategies(
@@ -132,9 +185,13 @@ def compare_strategies(
     # Viable first, then higher total, then the original idea, then id for a stable order.
     scored.sort(key=lambda s: (not s.viable, -s.total, not s.is_original, s.option_id))
     best = scored[0]
-    recommended = best if best.viable else None
+    if not best.viable:
+        return RankedStrategies(ranked=scored, recommended_id=None, keep_original=False)
+    chosen = next(o for o in options if o.id == best.option_id)
+    linked = by_id[chosen.opportunity_id] if chosen.opportunity_id else None
     return RankedStrategies(
         ranked=scored,
-        recommended_id=recommended.option_id if recommended else None,
-        keep_original=recommended is not None and recommended.is_original,
+        recommended_id=best.option_id,
+        keep_original=best.is_original,
+        caveats=_caveats(profile, chosen, linked),
     )

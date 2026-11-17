@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.engine.feasibility import Sourced
 from app.services.compare_strategies import WEIGHTS, StrategyComparisonError, compare_strategies
 from app.services.strategy_models import Opportunity, OptionScore, RankedStrategies, StrategyOption
 from tests.pune_fixtures import TODAY, assumed, opportunity, option, profile
@@ -62,6 +63,13 @@ def test_pune_keeping_the_original_ranks_first() -> None:
     assert result.keep_original is True
     assert by_id(result, "orig").total == D("86.30")  # reproducible, hand-checked
     assert by_id(result, "orig").total > by_id(result, "stall").total
+    # New rule: skill and equipment fit of 0 makes the stall non-viable (it was viable before).
+    scored_stall = by_id(result, "stall")
+    assert scored_stall.viable is False
+    assert any(
+        "skill and equipment fit is 0" in issue and "missing equipment: stall tent" in issue
+        for issue in scored_stall.viability_issues
+    )
 
 
 def test_pune_verified_alternative_with_better_margin_ranks_first() -> None:
@@ -237,3 +245,164 @@ def test_uses_minutes_assumption_in_capacity() -> None:
     slow = option(minutes_per_unit=assumed(200))
     reasons = {d.dimension: d.reason for d in by_id(run([slow]), "orig").scores}
     assert "assumption" in reasons["capacity"]
+
+
+# ---- hard gates: zero skill/equipment fit and zero capacity fit -------------------------------
+
+
+def no_skills_stall(**overrides: object) -> StrategyOption:
+    data: dict[str, object] = {
+        "required_skills": ["customer service"],
+        "required_equipment": ["stall tent"],
+    }
+    data.update(overrides)
+    return market_stall(**data)
+
+
+def test_zero_skill_equipment_fit_is_non_viable_and_names_the_missing_items() -> None:
+    scored = by_id(run([option(), no_skills_stall()]), "stall")
+    assert scored.viable is False
+    (issue,) = scored.viability_issues
+    assert issue.startswith("skill and equipment fit is 0")
+    assert "missing skills: customer service" in issue
+    assert "missing equipment: stall tent" in issue
+
+
+def test_partial_skill_equipment_match_stays_viable() -> None:
+    assert by_id(run([thin_original(), market_stall()]), "stall").viable is True  # fit 66
+
+
+def test_zero_skill_fit_option_loses_even_with_a_higher_total() -> None:
+    result = run([thin_original(), no_skills_stall()])
+    assert by_id(result, "stall").total > by_id(result, "orig").total
+    assert result.recommended_id == "orig"
+    assert [s.option_id for s in result.ranked] == ["orig", "stall"]
+
+
+def test_only_option_with_zero_skill_fit_gives_no_recommendation() -> None:
+    result = run([option(required_skills=["welding"])])
+    assert result.recommended_id is None
+    assert result.keep_original is False
+
+
+def test_zero_capacity_fit_from_no_weekly_capacity_is_non_viable() -> None:
+    weekend_less = profile(days_per_week=0)
+    scored = by_id(compare_strategies(weekend_less, [option()], [opportunity()], TODAY), "orig")
+    assert scored.viable is False
+    assert any(
+        i.startswith("capacity fit is 0") and "no weekly capacity" in i
+        for i in scored.viability_issues
+    )
+
+
+def test_zero_capacity_fit_from_no_hours_available_is_non_viable() -> None:
+    no_hours = profile(hours_per_week=assumed(0))
+    scored = by_id(compare_strategies(no_hours, [option()], [opportunity()], TODAY), "orig")
+    assert scored.viable is False
+    assert any(i.startswith("capacity fit is 0") for i in scored.viability_issues)
+
+
+def test_low_but_non_zero_capacity_fit_stays_viable() -> None:
+    slow = option(minutes_per_unit=assumed(200))  # 20 h needed vs 12 available -> 60
+    assert by_id(run([slow]), "orig").viable is True
+
+
+def test_several_gates_are_all_reported() -> None:
+    bad = option(fixed_startup_costs=D("9000"), required_skills=["welding"])
+    issues = by_id(run([bad]), "orig").viability_issues
+    assert len(issues) == 2
+    assert issues[0] == "over budget"
+    assert issues[1].startswith("skill and equipment fit is 0")
+
+
+# ---- caveats on the recommended option --------------------------------------------------------
+
+
+def kinds(result: RankedStrategies) -> list[str]:
+    return [c.kind for c in result.caveats]
+
+
+def test_caveats_name_missing_skills_and_equipment_separately() -> None:
+    stall = market_stall(
+        required_skills=["baking", "piping"], required_equipment=["oven", "stall tent", "gas stove"]
+    )
+    result = run([thin_original(), stall])
+    assert result.recommended_id == "stall"
+    by_kind = {c.kind: c for c in result.caveats}
+    assert by_kind["missing_skills"].items == ["piping"]
+    assert by_kind["missing_equipment"].items == ["stall tent", "gas stove"]
+    assert "piping" in by_kind["missing_skills"].message
+    assert "stall tent, gas stove" in by_kind["missing_equipment"].message
+
+
+def test_caveats_list_assumption_tagged_inputs_used() -> None:
+    result = run([thin_original(), market_stall()])  # fixtures tag hours and minutes as assumptions
+    assumptions = [c for c in result.caveats if c.kind == "assumption"]
+    assert sorted(c.items[0] for c in assumptions) == ["hours_per_week", "minutes_per_unit"]
+    assert all("assumption" in c.message for c in assumptions)
+    assert any("12" in c.message for c in assumptions)  # the value used
+    assert any("90" in c.message for c in assumptions)
+
+
+def test_user_provided_inputs_are_not_caveated_as_assumptions() -> None:
+    user = Sourced[int](value=12, source="user_provided")
+    mins = Sourced[int](value=90, source="user_provided")
+    result = compare_strategies(
+        profile(hours_per_week=user), [option(minutes_per_unit=mins)], [opportunity()], TODAY
+    )
+    assert result.recommended_id == "orig"
+    assert result.caveats == []
+
+
+def test_only_the_assumption_actually_used_is_listed() -> None:
+    user_hours = Sourced[int](value=12, source="user_provided")
+    result = compare_strategies(
+        profile(hours_per_week=user_hours), [option()], [opportunity()], TODAY
+    )
+    assert [c.items for c in result.caveats if c.kind == "assumption"] == [["minutes_per_unit"]]
+
+
+@pytest.mark.parametrize("status", ["single_source", "unverified_sample"])
+def test_caveat_for_verification_below_verified(status: str) -> None:
+    opp = opportunity(verification_status=status, verified_by=None, verified_on=None)
+    result = run([thin_original(), market_stall(required_equipment=["oven"])], [opp])
+    assert result.recommended_id == "stall"
+    (caveat,) = [c for c in result.caveats if c.kind == "verification"]
+    assert OPP_ID in caveat.message
+    assert status.replace("_", " ") in caveat.message
+    assert caveat.items == [OPP_ID]
+
+
+def test_no_verification_caveat_for_verified_opportunity() -> None:
+    result = run([thin_original(), market_stall()])
+    assert "verification" not in kinds(result)
+
+
+def test_caveats_only_describe_the_recommended_option() -> None:
+    # The original (not recommended) lacks welding; the recommended stall has no gaps.
+    result = run(
+        [
+            thin_original().model_copy(update={"required_skills": ["welding"]}),
+            market_stall(required_equipment=["oven"]),
+        ]
+    )
+    assert result.recommended_id == "stall"
+    assert "missing_skills" not in kinds(result)
+    assert not any("welding" in c.message for c in result.caveats)
+
+
+def test_caveats_empty_when_nothing_is_recommended() -> None:
+    result = run([option(fixed_startup_costs=D("9000"))])
+    assert result.recommended_id is None
+    assert result.caveats == []
+
+
+def test_caveat_order_is_missing_then_assumptions_then_verification() -> None:
+    opp = opportunity(verification_status="single_source", verified_by=None, verified_on=None)
+    result = run([thin_original(), market_stall()], [opp])
+    assert kinds(result) == [
+        "missing_equipment",
+        "assumption",
+        "assumption",
+        "verification",
+    ]
