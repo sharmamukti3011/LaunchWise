@@ -7,10 +7,15 @@ describe("page layout", () => {
 
   it("is a full-height flex column, with the main area growing and the footer last", () => {
     const wrapper = /^<div class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
-    expect(wrapper).toEqual(expect.arrayContaining(["flex", "flex-col", "min-h-screen"]));
+    expect(wrapper).toEqual(expect.arrayContaining(["flex", "flex-col", "min-h-dvh"]));
     expect(html).toMatch(/<main class="[^"]*\bflex-1\b/);
     expect(html.indexOf("<main")).toBeLessThan(html.indexOf("<footer"));
     expect(html.endsWith("</footer></div>")).toBe(true);
+  });
+
+  it("uses the dynamic viewport height, so mobile browser bars do not cause a stray scroll", () => {
+    expect(html).toContain("min-h-dvh");
+    expect(html).not.toContain("min-h-screen");
   });
 
   it("keeps the footer full width so it does not shrink to its text", () => {
