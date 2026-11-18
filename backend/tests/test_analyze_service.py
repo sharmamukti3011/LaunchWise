@@ -378,12 +378,15 @@ def test_unknown_id_on_the_original_is_also_rejected() -> None:
     assert raised.value.field == "options.0.opportunity_id"
 
 
-def test_an_alternative_without_evidence_is_rejected_when_the_market_is_covered() -> None:
+def test_an_alternative_with_no_market_evidence_is_analysed_in_a_covered_market() -> None:
     req = request(options=[option(), alternative(1, link=None)])
-    with pytest.raises(ScenarioError) as raised:
-        analyze(req)
-    assert raised.value.code == "alternative_needs_evidence"
-    assert raised.value.field == "options.1.opportunity_id"
+    result = analyze(req)
+    assert [o.option_id for o in result.options] == ["original-cakes", "alt-1"]
+    alt = next(o for o in result.options if o.option_id == "alt-1")
+    assert alt.opportunity_id is None
+    market = next(s for s in alt.score.scores if s.dimension == "market_signal")
+    assert market.score == 50 and "no market evidence" in market.reason
+    assert result.skipped_option_ids == []
 
 
 def test_an_alternative_without_a_link_is_simply_skipped_when_there_is_no_coverage() -> None:
@@ -392,7 +395,7 @@ def test_an_alternative_without_a_link_is_simply_skipped_when_there_is_no_covera
 
 
 def test_scenario_error_messages_are_fixed_text() -> None:
-    for code in ("unknown_opportunity", "alternative_needs_evidence"):
+    for code in ("unknown_opportunity",):
         err = ScenarioError(code, "options.0.opportunity_id")
         assert err.message and "options" not in err.message
 

@@ -41,7 +41,6 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 _MESSAGES = {
     "unknown_opportunity": "An option links to market evidence that is not in the dataset.",
-    "alternative_needs_evidence": "Each alternative must link to a market evidence entry from the dataset.",  # noqa: E501
     "inconsistent_scenario": "The options are inconsistent with each other.",
 }
 
@@ -68,7 +67,6 @@ class AnalyzeService:
         covered = self._dataset.covers(profile.location, request.category)
 
         if covered:
-            self._check_alternatives_have_evidence(options)
             analysed: list[AnalyzeOption] = options
             skipped: list[str] = []
             pool = list(self._dataset.opportunities)
@@ -123,12 +121,6 @@ class AnalyzeService:
             link = option.opportunity_id
             if link is not None and self._dataset.get(link) is None:
                 raise ScenarioError("unknown_opportunity", f"options.{index}.opportunity_id")
-
-    @staticmethod
-    def _check_alternatives_have_evidence(options: list[AnalyzeOption]) -> None:
-        for index, option in enumerate(options):
-            if not option.is_original and option.opportunity_id is None:
-                raise ScenarioError("alternative_needs_evidence", f"options.{index}.opportunity_id")
 
     def _linked_evidence(self, analysed: list[AnalyzeOption]) -> list[Opportunity]:
         wanted = {o.opportunity_id for o in analysed if o.opportunity_id is not None}

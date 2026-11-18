@@ -148,7 +148,7 @@ export function OwnIdeaFormView({ form, errors, evidence, running, onChange, onS
           <Field
             id="own-alt-evidenceId"
             label="Market evidence it is based on"
-            hint="Needed where we have market data for your place and business."
+            hint="Optional. With no market evidence, its market score is a neutral 50."
             error={errors["alt.evidenceId"]}
           >
             {(aria) => (
@@ -159,7 +159,7 @@ export function OwnIdeaFormView({ form, errors, evidence, running, onChange, onS
                 className={INPUT}
                 {...aria}
               >
-                <option value="">No market evidence link</option>
+                <option value="">No market evidence</option>
                 {evidence.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {`${entry.title} (${entry.source_name})${entry.direction === "against" ? " · argues against" : ""}`}

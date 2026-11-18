@@ -243,6 +243,10 @@ describe("mapServerErrors", () => {
     expect(mapServerErrors([])).toEqual({ form: GENERAL_ERROR });
   });
 
+  it("describes the evidence choice with 'No market evidence' as an option", () => {
+    expect(FIELD_TEXT["alt.evidenceId"]).toContain("No market evidence");
+  });
+
   it("keeps the general message alongside mapped fields only when something was unmapped", () => {
     const errors = mapServerErrors([
       { field: "category", message: "x" },

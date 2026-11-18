@@ -194,3 +194,39 @@ def test_a_sentinel_in_the_ideas_text_never_reaches_a_response_or_a_log(
     assert SENTINEL not in caplog.text and CLIENT not in caplog.text
     bad = dict(body, profile={**body["profile"], "budget": f"{SENTINEL}"})
     assert SENTINEL not in make_client().post(EXPLAIN, json=bad).text
+
+
+# ---- an alternative may have no market evidence, even in a covered area -----------------------
+
+
+def test_the_route_accepts_an_alternative_with_no_evidence_link_in_pune() -> None:
+    body = demo_body("pune-pivot")
+    del body["options"][1]["opportunity_id"]  # the custom cakes, no longer linked
+    response = make_client().post("/api/analyze", json=body)
+    assert response.status_code == 200
+    custom = next(
+        o for o in response.json()["options"] if o["option_id"] == "custom-celebration-cakes"
+    )
+    market = next(s for s in custom["score"]["scores"] if s["dimension"] == "market_signal")
+    assert market["score"] == 50 and custom["opportunity_id"] is None
+
+
+def test_an_unknown_evidence_id_is_still_rejected_with_the_field_named() -> None:
+    body = demo_body("pune-pivot")
+    body["options"][1]["opportunity_id"] = "PUNE-999"
+    response = make_client().post("/api/analyze", json=body)
+    assert response.status_code == 422
+    assert response.json()["errors"] == [
+        {
+            "field": "options.1.opportunity_id",
+            "message": "An option links to market evidence that is not in the dataset.",
+        }
+    ]
+
+
+def test_the_alternative_with_no_evidence_is_explained_without_naming_any_source() -> None:
+    body = demo_body("pune-pivot")
+    del body["options"][1]["opportunity_id"]
+    explanation = make_client().post(EXPLAIN, json=body).json()["explanation"]
+    assert explanation["source"] == "template"
+    assert "Custom celebration cakes" in explanation["summary"]

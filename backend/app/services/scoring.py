@@ -180,14 +180,13 @@ def market_signal_fit(
     option: StrategyOption, opportunity: Opportunity | None, today: date
 ) -> DimensionScore:
     if opportunity is None:
-        if option.is_original:
-            return DimensionScore(
-                dimension="market_signal",
-                score=NO_EVIDENCE_SCORE,
-                reason="no market evidence for the original idea; neutral score",
-            )
+        # No evidence is not evidence against: the original idea and an alternative the owner
+        # chose to leave unlinked both get the same neutral score, and neither is a finding.
+        what = "the original idea" if option.is_original else "this option"
         return DimensionScore(
-            dimension="market_signal", score=0, reason="no linked market opportunity"
+            dimension="market_signal",
+            score=NO_EVIDENCE_SCORE,
+            reason=f"no market evidence for {what}; neutral score",
         )
     if opportunity.direction == "against":
         # Evidence against an option gives it no market support, however strong or verified.

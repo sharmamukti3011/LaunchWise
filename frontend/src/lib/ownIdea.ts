@@ -139,7 +139,7 @@ export const FIELD_TEXT: Record<FieldKey, string> = {
   "alt.cost": MONEY_TEXT,
   "alt.startup": MONEY_TEXT,
   "alt.minutes": MINUTES_TEXT,
-  "alt.evidenceId": "Choose the market evidence this alternative is based on.",
+  "alt.evidenceId": "Choose an entry from the list, or No market evidence.",
 };
 
 export const GENERAL_ERROR = "Please check the highlighted fields and try again.";

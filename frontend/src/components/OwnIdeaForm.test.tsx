@@ -62,14 +62,25 @@ describe("Try your own idea", () => {
 
   it("offers the dataset entries for the alternative, and says which argue against", () => {
     const html = render();
-    expect(html).toContain("No market evidence link");
     expect(html).toContain("Home bakers get premium prices (YourStory (HerStory))");
     expect(html).toMatch(/Shop rents are high \(Housing\.com\)[^<]*argues against/);
     expect(html).toContain('value="PUNE-001"');
   });
 
+  it("offers 'No market evidence' as the first, default choice, valid in every area", () => {
+    const html = render();
+    expect(html).toMatch(/<select[^>]*id="own-alt-evidenceId"[^>]*><option value="" selected="">No market evidence<\/option>|<select[^>]*id="own-alt-evidenceId"[^>]*><option value="">No market evidence<\/option>/);
+    expect(html).not.toContain("No market evidence link");
+  });
+
+  it("explains that no evidence means a neutral market score", () => {
+    expect(render()).toMatch(/neutral 50/);
+  });
+
   it("works with no evidence choices at all", () => {
-    expect(render({ evidence: [] })).toContain("No market evidence link");
+    const html = render({ evidence: [] });
+    expect(html).toContain("No market evidence");
+    expect(html.match(/<option/g)).toHaveLength(1);
   });
 
   it("shows a fixed message under a field with an error, and links it for screen readers", () => {

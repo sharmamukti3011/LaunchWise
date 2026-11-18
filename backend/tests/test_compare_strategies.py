@@ -208,9 +208,31 @@ def test_event_passed_reason_and_viability_always_agree(
 # ---- input validation -------------------------------------------------------------------------
 
 
-def test_raises_when_alternative_has_no_opportunity_id() -> None:
-    with pytest.raises(StrategyComparisonError, match="stall.*opportunity_id"):
-        run([option(), market_stall(opportunity_id=None)])
+def test_an_alternative_may_have_no_market_evidence() -> None:
+    result = run([thin_original(), market_stall(opportunity_id=None, required_equipment=["oven"])])
+    stall = by_id(result, "stall")
+    assert dimension(stall, "market_signal") == 50  # neutral, the same as the original idea
+
+
+def test_a_recommended_alternative_with_no_evidence_gets_the_no_evidence_caveat() -> None:
+    result = run([thin_original(), market_stall(opportunity_id=None, required_equipment=["oven"])])
+    assert result.recommended_id == "stall"
+    assert [c.message for c in result.caveats if c.kind == "no_market_evidence"] == [
+        "There is no market evidence for this option, so its market score is a neutral 50, "
+        "not a finding."
+    ]
+
+
+def test_the_original_ideas_caveat_still_says_your_original_idea() -> None:
+    (caveat,) = [c for c in run([option()]).caveats if c.kind == "no_market_evidence"]
+    assert "your original idea" in caveat.message
+
+
+def test_no_evidence_is_not_the_same_as_evidence_against() -> None:
+    against = opportunity(direction="against")
+    linked = by_id(run([thin_original(), market_stall()], [against]), "stall")
+    unlinked = by_id(run([thin_original(), market_stall(opportunity_id=None)]), "stall")
+    assert dimension(linked, "market_signal") == 0 and dimension(unlinked, "market_signal") == 50
 
 
 def test_raises_on_unknown_opportunity_id() -> None:

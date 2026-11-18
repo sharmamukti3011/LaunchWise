@@ -181,10 +181,15 @@ def test_original_without_evidence_gets_neutral_50() -> None:
     assert "no market evidence" in score.reason
 
 
-def test_alternative_without_linked_opportunity_scores_zero() -> None:
+def test_an_alternative_with_no_market_evidence_gets_the_same_neutral_50() -> None:
     score = market_signal_fit(option(id="alt", is_original=False), None, TODAY)
-    assert score.score == 0
-    assert "no linked" in score.reason
+    assert score.score == 50
+    assert "no market evidence for this option" in score.reason and "neutral" in score.reason
+
+
+def test_the_original_keeps_its_own_wording() -> None:
+    reason = market_signal_fit(option(), None, TODAY).reason
+    assert reason == "no market evidence for the original idea; neutral score"
 
 
 @pytest.mark.parametrize(("strength", "expected"), [("low", 30), ("medium", 60), ("high", 90)])

@@ -69,12 +69,8 @@ def _validate(options: list[StrategyOption], opportunities: list[Opportunity]) -
     if len(set(opportunity_ids)) != len(opportunity_ids):
         raise StrategyComparisonError("duplicate opportunity id")
     for option in options:
-        if option.opportunity_id is None:
-            if not option.is_original:
-                raise StrategyComparisonError(
-                    f"option {option.id!r} has no opportunity_id; only the original may omit it"
-                )
-        elif option.opportunity_id not in opportunity_ids:
+        # An option may leave out its link: that means no market evidence, scored neutrally.
+        if option.opportunity_id is not None and option.opportunity_id not in opportunity_ids:
             raise StrategyComparisonError(
                 f"option {option.id!r} refers to unknown opportunity_id {option.opportunity_id!r}"
             )
@@ -210,12 +206,12 @@ def _caveats(
             )
     caveats.extend(_engine_assumption_caveats(result))
     if opportunity is None:
-        # Validation lets only the original omit a link, so this is the original idea.
+        what = "your original idea" if option.is_original else "this option"
         caveats.append(
             Caveat(
                 kind="no_market_evidence",
                 message=(
-                    "There is no market evidence for your original idea, so its market score "
+                    f"There is no market evidence for {what}, so its market score "
                     f"is a neutral {NO_EVIDENCE_SCORE}, not a finding."
                 ),
                 items=[],
