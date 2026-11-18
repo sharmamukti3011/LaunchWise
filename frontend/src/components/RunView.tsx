@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { explainScenario } from "../api/demo";
 import type { DemoRun } from "../api/demo";
+import { ExplanationPanel } from "./ExplanationPanel";
+import type { ExplanationState } from "./ExplanationPanel";
 import { EvidenceAndCaveats } from "./EvidenceAndCaveats";
 import { ScoreTable } from "./ScoreTable";
 import { StepLog } from "./StepLog";
@@ -39,6 +42,20 @@ export function RunView({ run }: { run: DemoRun }) {
     return () => window.clearTimeout(timer);
   }, [visible, steps.length]);
 
+  // Fetched at once, so it is usually ready by the time the replay finishes.
+  const [explanation, setExplanation] = useState<ExplanationState>({ status: "loading" });
+  const scenarioId = run.scenario.id;
+  useEffect(() => {
+    const controller = new AbortController();
+    explainScenario(scenarioId, controller.signal)
+      .then((result) => setExplanation({ status: "ready", explanation: result.explanation }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setExplanation({ status: "error" });
+      });
+    return () => controller.abort();
+  }, [scenarioId]);
+
   const done = visible >= steps.length;
   return (
     <div className="mt-6 space-y-4">
@@ -49,6 +66,7 @@ export function RunView({ run }: { run: DemoRun }) {
       {done && (
         <>
           <Recommendation run={run} />
+          <ExplanationPanel state={explanation} />
           <ScoreTable analysis={run.analysis} />
           <EvidenceAndCaveats analysis={run.analysis} />
         </>

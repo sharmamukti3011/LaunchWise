@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DemoError, fetchScenarios, runScenario } from "./demo";
+import { DemoError, explainScenario, fetchScenarios, runScenario } from "./demo";
 
 function respond(status: number, body: unknown = {}, headers: Record<string, string> = {}) {
   vi.stubGlobal(
@@ -55,5 +55,31 @@ describe("runScenario", () => {
   it("lets an abort through unchanged", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("x", "AbortError")));
     await expect(runScenario("a")).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("explainScenario", () => {
+  const body = {
+    scenario_id: "pune-pivot",
+    simulated: true,
+    notice: "n",
+    explanation: { summary: "s", source: "claude", fallback_reason: null },
+  };
+
+  it("POSTs to the explain endpoint and returns the explanation", async () => {
+    respond(200, body);
+    const result = await explainScenario("pune-pivot");
+    expect(result.explanation.source).toBe("claude");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/demo/explain/pune-pivot",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("maps failures to the same plain messages", async () => {
+    respond(429, {}, { "Retry-After": "5" });
+    await expect(explainScenario("a")).rejects.toMatchObject({ kind: "rate_limited" });
+    respond(500);
+    await expect(explainScenario("a")).rejects.toMatchObject({ kind: "server" });
   });
 });

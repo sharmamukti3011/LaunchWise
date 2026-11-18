@@ -108,6 +108,19 @@ export interface DemoRun {
   analysis: Analysis;
 }
 
+export interface Explanation {
+  summary: string;
+  source: "claude" | "template";
+  fallback_reason: "not_configured" | "budget" | "unavailable" | "invalid" | null;
+}
+
+export interface DemoExplain {
+  scenario_id: string;
+  simulated: true;
+  notice: string;
+  explanation: Explanation;
+}
+
 export type DemoErrorKind = "rate_limited" | "not_found" | "server" | "network";
 
 /** A failure with a message safe to show. Server text is never passed through. */
@@ -155,4 +168,12 @@ export async function runScenario(id: string, signal?: AbortSignal): Promise<Dem
     signal,
   });
   return (await response.json()) as DemoRun;
+}
+
+export async function explainScenario(id: string, signal?: AbortSignal): Promise<DemoExplain> {
+  const response = await request(`/api/demo/explain/${encodeURIComponent(id)}`, {
+    method: "POST",
+    signal,
+  });
+  return (await response.json()) as DemoExplain;
 }
