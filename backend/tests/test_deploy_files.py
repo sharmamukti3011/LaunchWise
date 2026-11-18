@@ -205,3 +205,15 @@ def test_analyze_requests_are_size_capped_before_they_reach_the_backend() -> Non
 def test_compose_forces_production_so_the_docs_are_off_on_the_server() -> None:
     backend = service_blocks(read("docker-compose.yml"))["backend"]
     assert re.search(r"^\s+APP_ENV:\s*production\s*$", backend, re.M)
+
+
+def test_the_demo_scenarios_ship_in_the_image() -> None:
+    from app.services.demo_catalog import DEMO_DIR
+
+    relative = DEMO_DIR.relative_to(ROOT).as_posix()
+    assert (ROOT / relative / "manifest.json").is_file()
+    assert not is_excluded(relative + "/manifest.json", parse_dockerignore(read(".dockerignore")))
+    sources = re.findall(
+        r"^COPY\s+(?:--\S+\s+)*(\S+)\s+\S+\s*$", directives("backend/Dockerfile"), re.M
+    )
+    assert any(relative.startswith(s.rstrip("/") + "/") for s in sources), sources

@@ -9,18 +9,18 @@ market score is 30 - 15 = 15, and an original idea with no evidence gets a neutr
 
 import json
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from app.services.analyze_models import AnalyzeRequest, AnalyzeResponse
 from app.services.analyze_service import AnalyzeService
+from app.services.demo_catalog import DEMO_DIR
 from app.services.market_data import load_dataset
 from tests.fakes import FakeClock
 
 D = Decimal
-SCENARIOS = Path(__file__).parent / "scenarios"
+SCENARIOS = DEMO_DIR  # the shipped demo files are the only copy of these scenarios
 NAMES = [
     "a_alternative_beats_thin_margin_original",
     "b_strong_original_wins",

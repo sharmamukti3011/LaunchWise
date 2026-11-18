@@ -1,0 +1,28 @@
+{
+  "scenarios": [
+    {
+      "id": "pune-pivot",
+      "title": "Pune bakery: a pivot beats a thin-margin original",
+      "summary": "₹10,000, about 3 cakes a day, weekends only. Everyday cakes barely pay; custom celebration cakes score higher.",
+      "file": "a_alternative_beats_thin_margin_original.json"
+    },
+    {
+      "id": "pune-keep-original",
+      "title": "Pune bakery: keep your original idea",
+      "summary": "₹10,000, weekends only. The original cakes have a healthy margin and the alternative needs equipment you lack.",
+      "file": "b_strong_original_wins.json"
+    },
+    {
+      "id": "pune-nothing-viable",
+      "title": "Pune bakery: nothing is viable yet",
+      "summary": "₹5,000 is too little. The original has no margin and the alternative is over budget, so nothing is recommended.",
+      "file": "c_no_viable_option.json"
+    },
+    {
+      "id": "noida-feasibility-only",
+      "title": "Noida: feasibility only, no market data",
+      "summary": "A high-protein breakfast box outside Pune. The numbers are checked, but there is no market data, so no pivots are suggested.",
+      "file": "d_noida_feasibility_only.json"
+    }
+  ]
+}

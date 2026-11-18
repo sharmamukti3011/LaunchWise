@@ -7,11 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api_errors import handle_scenario_error, handle_validation_error
 from app.body_limit import BodySizeLimitMiddleware
 from app.logging_config import configure_logging
-from app.routes import analyze, contact, health
+from app.routes import analyze, contact, demo, health
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
 from app.services.clock import Clock, SystemClock
 from app.services.contact_service import build_contact_service
+from app.services.demo_catalog import load_demo_catalog
+from app.services.demo_service import DemoService
 from app.services.mail import MailSender, mail_sender_from_settings
 from app.services.market_data import MarketDataset, load_dataset
 from app.services.rate_limit import RateLimiter
@@ -63,7 +65,7 @@ def create_app(
         app.state.contact_service = build_contact_service(
             settings, mail_sender or mail_sender_from_settings(settings), clock
         )
-    app.state.analyze_gateway = AnalyzeGateway(
+    gateway = AnalyzeGateway(
         AnalyzeService(market, clock),
         RateLimiter(
             limit=settings.analyze_rate_limit_per_ip,
@@ -71,8 +73,13 @@ def create_app(
             clock=clock,
         ),
     )
+    app.state.analyze_gateway = gateway
+    # The demo reuses the analyze gateway, so it shares its rate limit and its outcome logging.
+    # The catalog is validated here, so a bad scenario file stops the app at startup.
+    app.state.demo_service = DemoService(load_demo_catalog(), gateway)
 
     app.include_router(health.router, prefix="/api")
     app.include_router(contact.router, prefix="/api")
     app.include_router(analyze.router, prefix="/api")
+    app.include_router(demo.router, prefix="/api")
     return app

@@ -5,19 +5,19 @@ import json
 import logging
 from collections.abc import Iterator
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.services.demo_catalog import DEMO_DIR
 from app.services.market_data import DatasetError
 from app.settings import Settings
 from tests.fakes import FakeClock, FakeMailSender
 
 URL = "/api/analyze"
-SCENARIOS = Path(__file__).parent / "scenarios"
+SCENARIOS = DEMO_DIR  # the shipped demo files are the only copy of these scenarios
 SCENARIO_A = "a_alternative_beats_thin_margin_original"
 SENTINEL = "ZQSENTINEL"
 INVALID_REQUEST = "The request was not valid."
@@ -308,7 +308,13 @@ def test_a_413_still_carries_cors_headers_for_the_allowed_origin(client: TestCli
 def test_the_storefront_path_prefix_is_reserved() -> None:
     app = create_app(settings())
     registered = list(app.openapi()["paths"])
-    assert sorted(registered) == ["/api/analyze", "/api/contact", "/api/health"]
+    assert sorted(registered) == [
+        "/api/analyze",
+        "/api/contact",
+        "/api/demo/run/{scenario_id}",
+        "/api/demo/scenarios",
+        "/api/health",
+    ]
     assert [p for p in registered if p == "/s" or p.startswith("/s/")] == []
     client = TestClient(app)
     for path in ("/s", "/s/", "/s/some-bakery"):
