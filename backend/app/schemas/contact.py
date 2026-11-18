@@ -6,10 +6,11 @@ recipient (`to`, `cc`, `bcc`, ...): the recipient is set server-side only.
 """
 
 import re
-import unicodedata
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.text import reject_control_characters
 
 # Plain ASCII addresses only: letters, digits, the usual local-part symbols, and a dotted domain.
 # Deliberately simpler than the RFC, and it needs no extra dependency.
@@ -19,15 +20,6 @@ _EMAIL = re.compile(
     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
 )
 _MAX_LOCAL_PART = 64
-# Control characters (includes CR, LF, NUL, tab), and Unicode line and paragraph separators.
-_FORBIDDEN_CATEGORIES = {"Cc", "Zl", "Zp"}
-
-
-def _reject_control_characters(text: str, allowed: str = "") -> str:
-    for char in text:
-        if unicodedata.category(char) in _FORBIDDEN_CATEGORIES and char not in allowed:
-            raise ValueError("contains characters that are not allowed")
-    return text
 
 
 class ContactRequest(BaseModel):
@@ -42,12 +34,12 @@ class ContactRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def _name_is_one_clean_line(cls, value: str) -> str:
-        return _reject_control_characters(value)
+        return reject_control_characters(value)
 
     @field_validator("email")
     @classmethod
     def _email_is_a_plain_address(cls, value: str) -> str:
-        _reject_control_characters(value)
+        reject_control_characters(value)
         local = value.split("@", 1)[0]
         if len(local) > _MAX_LOCAL_PART or not _EMAIL.fullmatch(value):
             raise ValueError("is not a valid email address")
@@ -56,7 +48,7 @@ class ContactRequest(BaseModel):
     @field_validator("message")
     @classmethod
     def _message_is_clean_text(cls, value: str) -> str:
-        _reject_control_characters(value, allowed="\r\n\t")
+        reject_control_characters(value, allowed="\r\n\t")
         return value.replace("\r\n", "\n").replace("\r", "\n")
 
 
