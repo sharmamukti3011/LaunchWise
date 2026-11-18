@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
-import { explainScenario } from "../api/demo";
-import type { DemoRun } from "../api/demo";
-import { ExplanationPanel } from "./ExplanationPanel";
-import { Recommendation } from "./Recommendation";
-import type { ExplanationState } from "./ExplanationPanel";
+import type { ResultView } from "../lib/results";
 import { EvidenceAndCaveats } from "./EvidenceAndCaveats";
+import { ExplanationPanel } from "./ExplanationPanel";
+import type { ExplanationState } from "./ExplanationPanel";
+import { Recommendation } from "./Recommendation";
 import { ScoreTable } from "./ScoreTable";
 import { StepLog } from "./StepLog";
 
 const STEP_DELAY_MS = 700;
 
 function prefersReducedMotion(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/** Mount with a fresh `key` per run: the replay state then starts clean without an effect reset. */
-export function RunView({ run }: { run: DemoRun }) {
-  const steps = run.analysis.steps;
+/**
+ * The results for a demo scenario or for the owner's own idea. Mount with a fresh `key` per
+ * result: the replay state then starts clean without an effect reset.
+ */
+export function RunView({ result }: { result: ResultView }) {
+  const { analysis, loadExplanation } = result;
+  const steps = analysis.steps;
   const [visible, setVisible] = useState(() => (prefersReducedMotion() ? steps.length : 0));
 
   useEffect(() => {
@@ -27,31 +31,32 @@ export function RunView({ run }: { run: DemoRun }) {
 
   // Fetched at once, so it is usually ready by the time the replay finishes.
   const [explanation, setExplanation] = useState<ExplanationState>({ status: "loading" });
-  const scenarioId = run.scenario.id;
   useEffect(() => {
     const controller = new AbortController();
-    explainScenario(scenarioId, controller.signal)
-      .then((result) => setExplanation({ status: "ready", explanation: result.explanation }))
+    loadExplanation(controller.signal)
+      .then((loaded) => setExplanation({ status: "ready", explanation: loaded }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setExplanation({ status: "error" });
       });
     return () => controller.abort();
-  }, [scenarioId]);
+  }, [loadExplanation]);
 
   const done = visible >= steps.length;
   return (
     <div className="mt-6 space-y-4">
-      <p role="note" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-        <strong>{run.scenario.title}.</strong> {run.notice}
-      </p>
+      {result.notice && (
+        <p role="note" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          <strong>{result.title}.</strong> {result.notice}
+        </p>
+      )}
       <StepLog steps={steps} visible={visible} onSkip={() => setVisible(steps.length)} />
       {done && (
         <>
-          <Recommendation run={run} />
+          <Recommendation analysis={analysis} />
           <ExplanationPanel state={explanation} />
-          <ScoreTable analysis={run.analysis} />
-          <EvidenceAndCaveats analysis={run.analysis} />
+          <ScoreTable analysis={analysis} />
+          <EvidenceAndCaveats analysis={analysis} />
         </>
       )}
     </div>

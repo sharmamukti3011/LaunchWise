@@ -1,18 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { DemoRun } from "../api/demo";
+import type { Analysis } from "../api/demo";
 import { Recommendation, recommendationTone } from "./Recommendation";
 
-function run(recommendedId: string | null, keepOriginal: boolean): DemoRun {
+function run(recommendedId: string | null, keepOriginal: boolean): Analysis {
   return {
-    analysis: {
-      options: [
-        { option_id: "orig", title: "Everyday cakes" },
-        { option_id: "alt", title: "Custom cakes" },
-      ],
-      ranking: { recommended_id: recommendedId, keep_original: keepOriginal },
-    },
-  } as unknown as DemoRun;
+    options: [
+      { option_id: "orig", title: "Everyday cakes" },
+      { option_id: "alt", title: "Custom cakes" },
+    ],
+    ranking: { recommended_id: recommendedId, keep_original: keepOriginal },
+  } as unknown as Analysis;
 }
 
 describe("recommendationTone", () => {
@@ -25,28 +23,28 @@ describe("recommendationTone", () => {
 
 describe("Recommendation banner", () => {
   it("is green for 'Switch to'", () => {
-    const html = renderToStaticMarkup(<Recommendation run={run("alt", false)} />);
+    const html = renderToStaticMarkup(<Recommendation analysis={run("alt", false)} />);
     expect(html).toContain("Switch to: Custom cakes.");
     expect(html).toContain("emerald");
     expect(html).not.toContain("amber");
   });
 
   it("is green for 'Keep your original idea'", () => {
-    const html = renderToStaticMarkup(<Recommendation run={run("orig", true)} />);
+    const html = renderToStaticMarkup(<Recommendation analysis={run("orig", true)} />);
     expect(html).toContain("Keep your original idea: Everyday cakes.");
     expect(html).toContain("emerald");
     expect(html).not.toContain("amber");
   });
 
   it("is amber, not green, when nothing is viable", () => {
-    const html = renderToStaticMarkup(<Recommendation run={run(null, false)} />);
+    const html = renderToStaticMarkup(<Recommendation analysis={run(null, false)} />);
     expect(html).toContain("None of these options is viable");
     expect(html).toContain("amber");
     expect(html).not.toContain("emerald");
   });
 
   it("still says it is a suggestion, not a promise of profit", () => {
-    const html = renderToStaticMarkup(<Recommendation run={run(null, false)} />);
+    const html = renderToStaticMarkup(<Recommendation analysis={run(null, false)} />);
     expect(html).toContain("not a promise of profit");
   });
 });

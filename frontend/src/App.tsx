@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DemoError, fetchScenarios, runScenario } from "./api/demo";
-import type { DemoRun, DemoScenario } from "./api/demo";
+import type { DemoScenario } from "./api/demo";
 import { ContactForm } from "./components/ContactForm";
 import { Footer } from "./components/Footer";
+import { OwnIdeaSection } from "./components/OwnIdeaForm";
 import { RunView } from "./components/RunView";
 import { ScenarioPicker } from "./components/ScenarioPicker";
+import { demoResult } from "./lib/results";
+import type { ResultView } from "./lib/results";
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -17,12 +20,13 @@ function messageFor(error: unknown): string {
 export default function App() {
   const [scenarios, setScenarios] = useState<DemoScenario[] | null>(null);
   const [selectedId, setSelectedId] = useState("");
-  const [run, setRun] = useState<DemoRun | null>(null);
+  const [result, setResult] = useState<ResultView | null>(null);
   const [runCount, setRunCount] = useState(0);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const runController = useRef<AbortController | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -39,6 +43,16 @@ export default function App() {
 
   useEffect(() => () => runController.current?.abort(), []);
 
+  // A new result, from a demo or from the owner's own idea, scrolls into view.
+  useEffect(() => {
+    if (runCount > 0) resultRef.current?.scrollIntoView({ block: "start" });
+  }, [runCount]);
+
+  const showResult = useCallback((next: ResultView) => {
+    setResult(next);
+    setRunCount((n) => n + 1);
+  }, []);
+
   const onRun = useCallback(() => {
     runController.current?.abort();
     const controller = new AbortController();
@@ -46,17 +60,14 @@ export default function App() {
     setRunning(true);
     setError(null);
     runScenario(selectedId, controller.signal)
-      .then((result) => {
-        setRun(result);
-        setRunCount((n) => n + 1);
-      })
+      .then((run) => showResult(demoResult(run)))
       .catch((e: unknown) => {
         if (!isAbort(e)) setError(messageFor(e));
       })
       .finally(() => {
         if (runController.current === controller) setRunning(false);
       });
-  }, [selectedId]);
+  }, [selectedId, showResult]);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -98,7 +109,9 @@ export default function App() {
           </div>
         )}
 
-        {run && <RunView key={runCount} run={run} />}
+        <OwnIdeaSection onResult={showResult} />
+
+        <div ref={resultRef}>{result && <RunView key={runCount} result={result} />}</div>
 
         <ContactForm />
       </main>

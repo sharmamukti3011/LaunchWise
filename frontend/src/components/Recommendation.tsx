@@ -1,9 +1,9 @@
-import type { DemoRun } from "../api/demo";
+import type { Analysis } from "../api/demo";
 
 export type RecommendationTone = "switch" | "keep" | "none";
 
-export function recommendationTone(run: DemoRun): RecommendationTone {
-  const { recommended_id, keep_original } = run.analysis.ranking;
+export function recommendationTone(analysis: Analysis): RecommendationTone {
+  const { recommended_id, keep_original } = analysis.ranking;
   if (recommended_id === null) return "none";
   return keep_original ? "keep" : "switch";
 }
@@ -15,9 +15,9 @@ const STYLES: Record<RecommendationTone, { box: string; heading: string }> = {
   none: { box: "border-amber-500 bg-amber-50", heading: "text-amber-900" },
 };
 
-export function Recommendation({ run }: { run: DemoRun }) {
-  const { ranking, options } = run.analysis;
-  const tone = recommendationTone(run);
+export function Recommendation({ analysis }: { analysis: Analysis }) {
+  const { ranking, options } = analysis;
+  const tone = recommendationTone(analysis);
   const title = options.find((o) => o.option_id === ranking.recommended_id)?.title;
   let message: string;
   if (tone === "none" || !title) message = "None of these options is viable with your constraints yet.";

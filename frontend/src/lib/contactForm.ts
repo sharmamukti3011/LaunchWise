@@ -1,18 +1,10 @@
 import type { ContactOutcome, ContactValues } from "../api/contact";
+import { hasControlOrLineBreak } from "./text";
 
 /** The same limits the server enforces, so most mistakes are caught before sending. */
 export const LIMITS = { name: 100, email: 254, message: 2000 } as const;
 
 export const EMPTY_VALUES: ContactValues = { name: "", email: "", message: "", website: "" };
-
-// Control characters and line separators: in a name or email they could become a mail header.
-function hasControlOrLineBreak(text: string): boolean {
-  for (const char of text) {
-    const code = char.codePointAt(0) ?? 0;
-    if (code <= 0x1f || code === 0x7f || code === 0x2028 || code === 0x2029) return true;
-  }
-  return false;
-}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
