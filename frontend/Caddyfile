@@ -1,0 +1,36 @@
+# SITE_DOMAIN comes from the environment (docker-compose.yml); launchwise.pro is the default.
+# Caddy obtains and renews the HTTPS certificates for both names automatically.
+
+www.{$SITE_DOMAIN:launchwise.pro} {
+	redir https://{$SITE_DOMAIN:launchwise.pro}{uri} permanent
+}
+
+{$SITE_DOMAIN:launchwise.pro} {
+	encode zstd gzip
+
+	header {
+		# Short max-age while launch is being proven. Raise it once everything works (see README).
+		# Deliberately no includeSubDomains and no preload.
+		Strict-Transport-Security "max-age=300"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Generated storefronts are served by the backend at /s/<slug>.
+	handle /s/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,22 @@
+# Keep secrets, history, tests and local junk out of every image build.
+.env
+.env.*
+.git
+.gitignore
+.claude
+.idea
+docs
+**/tests
+.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.pytest_cache
+.ruff_cache
+**/*.tsbuildinfo
+*.db
+*.sqlite
+*.sqlite3
+*.log

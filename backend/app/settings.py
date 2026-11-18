@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     claude_max_calls_per_session: int = Field(default=20, ge=1)
     claude_max_calls_global: int = Field(default=500, ge=1)
 
+    # Off by default so a first deploy needs no mailbox values. The contact route that reads it
+    # arrives with the contact endpoint.
+    contact_enabled: bool = False
     smtp_host: str | None = None
     smtp_port: int | None = Field(default=None, ge=0, le=65535)
     smtp_user: str | None = None

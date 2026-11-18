@@ -24,7 +24,7 @@ Python 3.11+, FastAPI, Pydantic v2, SQLite; React + Tailwind; Docker Compose on 
 - Run tests: `make test` (backend `pytest`).
 - Check backend: `make check` (ruff check, ruff format --check, mypy, pytest).
 - Check frontend: `make check-frontend` (eslint and type check).
-- `docker compose up`: not created yet; add when it exists.
+- Run the full stack: `docker compose up -d --build` (needs a `.env` next to `docker-compose.yml`; set `SITE_DOMAIN=localhost` in it for a local smoke test).
 
 ## Deployment
 - Host: Ubuntu 24.04 VPS (GoDaddy), run with Docker Compose v5.

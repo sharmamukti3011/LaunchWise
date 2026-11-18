@@ -1,0 +1,78 @@
+# LaunchWise stack: Caddy (HTTPS, www redirect, static frontend, /api proxy) in front of the backend.
+# Run from the repo root on the server: docker compose up -d --build
+# Secrets live only in the server-side .env, loaded through env_file. Never bake them into images.
+name: launchwise
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    # Secrets and per-environment values (API keys, mailbox password). The file must exist.
+    env_file:
+      - .env
+    # Non-secret overrides. These win over env_file so production can't run in development mode.
+    environment:
+      APP_ENV: production
+      CORS_ALLOWED_ORIGIN: https://${SITE_DOMAIN:-launchwise.pro}
+      DATABASE_PATH: /data/launchwise.db
+      # Only Caddy (fixed address below) may set the client address via X-Forwarded-For.
+      FORWARDED_ALLOW_IPS: "10.77.0.10"
+    volumes:
+      - launchwise-data:/data
+    # No published ports: the backend is reachable only from Caddy on the internal network.
+    expose:
+      - "8000"
+    networks:
+      - launchwise
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-launchwise.pro}
+    # The only public ports.
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      launchwise:
+        ipv4_address: 10.77.0.10
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Lets the non-root caddy user bind ports 80 and 443 inside its own network namespace.
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+
+networks:
+  launchwise:
+    ipam:
+      config:
+        # TODO(verify): this subnet must not clash with other networks on the VPS.
+        - subnet: 10.77.0.0/24
+
+volumes:
+  launchwise-data:
+  caddy-data:
+  caddy-config:
