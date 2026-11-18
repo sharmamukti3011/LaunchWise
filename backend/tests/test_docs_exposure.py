@@ -45,9 +45,11 @@ def test_the_schema_can_still_be_generated_in_process_for_tests_and_tooling() ->
     app = create_app(Settings(_env_file=None, app_env="production"))
     assert sorted(app.openapi()["paths"]) == [
         "/api/analyze",
+        "/api/analyze/explain",
         "/api/contact",
         "/api/demo/explain/{scenario_id}",
         "/api/demo/run/{scenario_id}",
         "/api/demo/scenarios",
         "/api/health",
+        "/api/market-evidence",
     ]

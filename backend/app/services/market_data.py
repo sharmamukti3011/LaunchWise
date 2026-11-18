@@ -13,15 +13,32 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-from app.services.strategy_models import Opportunity
+from app.services.strategy_models import EvidenceDirection, Opportunity
 
 DATASET_PATH = Path(__file__).resolve().parents[1] / "data" / "market_opportunities.json"
 MAX_DATASET_BYTES = 256 * 1024
 
 # Trailing words that name a region, not a different place: "Pune, Maharashtra" is still Pune.
 _REGION_WORDS = {"city", "district", "maharashtra", "india"}
+
+
+class EvidenceChoice(BaseModel):
+    """What a picker needs to offer a dataset entry: never the evidence text or the link."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    title: str
+    source_name: str
+    direction: EvidenceDirection
+
+
+class EvidenceChoiceList(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    evidence: list[EvidenceChoice]
 
 
 class DatasetError(Exception):
@@ -71,6 +88,16 @@ class MarketDataset:
 
     def get(self, opportunity_id: str) -> Opportunity | None:
         return self._by_id.get(opportunity_id)
+
+    def choices(self) -> EvidenceChoiceList:
+        return EvidenceChoiceList(
+            evidence=[
+                EvidenceChoice(
+                    id=o.id, title=o.title, source_name=o.source_name, direction=o.direction
+                )
+                for o in self._items
+            ]
+        )
 
     def covers(self, location: str, category: str) -> bool:
         """True if some entry is for this place and this kind of business."""

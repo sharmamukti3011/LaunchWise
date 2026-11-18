@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api_errors import handle_scenario_error, handle_validation_error
 from app.body_limit import BodySizeLimitMiddleware
 from app.logging_config import configure_logging
-from app.routes import analyze, contact, demo, health
+from app.routes import analyze, contact, demo, evidence, health
+from app.services.analyze_explainer import AnalyzeExplainer
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
 from app.services.call_budget import CallBudget
@@ -24,7 +25,11 @@ from app.services.rate_limit import RateLimiter
 from app.settings import Settings, get_settings
 
 # Request body caps in bytes. Caddy enforces slightly lower caps in front of the app.
-BODY_LIMITS = {"/api/analyze": 32 * 1024, "/api/contact": 16 * 1024}
+BODY_LIMITS = {
+    "/api/analyze": 32 * 1024,
+    "/api/analyze/explain": 32 * 1024,
+    "/api/contact": 16 * 1024,
+}
 
 
 def create_app(
@@ -100,12 +105,14 @@ def create_app(
     budget = CallBudget(
         per_key=settings.claude_max_calls_per_session, total=settings.claude_max_calls_global
     )
-    app.state.demo_service = DemoService(
-        load_demo_catalog(), gateway, ExplainService(claude, budget)
-    )
+    explain_service = ExplainService(claude, budget)
+    app.state.demo_service = DemoService(load_demo_catalog(), gateway, explain_service)
+    app.state.analyze_explainer = AnalyzeExplainer(gateway, explain_service)
+    app.state.market_dataset = market
 
     app.include_router(health.router, prefix="/api")
     app.include_router(contact.router, prefix="/api")
     app.include_router(analyze.router, prefix="/api")
     app.include_router(demo.router, prefix="/api")
+    app.include_router(evidence.router, prefix="/api")
     return app

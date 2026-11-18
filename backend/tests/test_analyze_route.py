@@ -321,11 +321,13 @@ def test_the_storefront_path_prefix_is_reserved() -> None:
     registered = list(app.openapi()["paths"])
     assert sorted(registered) == [
         "/api/analyze",
+        "/api/analyze/explain",
         "/api/contact",
         "/api/demo/explain/{scenario_id}",
         "/api/demo/run/{scenario_id}",
         "/api/demo/scenarios",
         "/api/health",
+        "/api/market-evidence",
     ]
     assert [p for p in registered if p == "/s" or p.startswith("/s/")] == []
     client = TestClient(app)

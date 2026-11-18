@@ -22,6 +22,7 @@ from app.engine.feasibility import FeasibilityResult, Money, Sourced
 from app.schemas.text import reject_control_characters
 from app.services.strategy_models import (
     ConstraintProfile,
+    HoursPerWeek,
     Opportunity,
     OptionScore,
     RankedStrategies,
@@ -33,6 +34,11 @@ MAX_MONEY = Decimal("10000000")  # Rs 1 crore: far above any first-time business
 MAX_UNITS_PER_DAY = 10_000
 MAX_MINUTES_PER_UNIT = 1_440  # a whole day
 MAX_LIST_ITEMS = 20
+
+# ASSUMPTIONS (our choice, not measured): used only when the owner leaves a figure blank. They are
+# always tagged "assumption", so the engine's existing caveats say they were not provided.
+DEFAULT_HOURS_PER_WEEK = 20  # a part-time business
+DEFAULT_MINUTES_PER_UNIT = 60
 
 _CLEAN = AfterValidator(reject_control_characters)
 
@@ -53,10 +59,16 @@ BoundedMoney = Annotated[Money, Field(le=MAX_MONEY, decimal_places=2)]
 NameList = Annotated[list[ShortText], Field(max_length=MAX_LIST_ITEMS)]
 
 
+# The same parametrised types as the fields, so the defaults serialise without warnings.
+MinutesPerUnit = Sourced[Annotated[int, Field(ge=0, le=MAX_MINUTES_PER_UNIT)]]
+
+
 class AnalyzeProfile(ConstraintProfile):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     budget: BoundedMoney
+    # Left out, this is an assumption. An explicit null is still rejected.
+    hours_per_week: HoursPerWeek = HoursPerWeek(value=DEFAULT_HOURS_PER_WEEK, source="assumption")
     units_per_day: Annotated[int, Field(ge=0, le=MAX_UNITS_PER_DAY)]
     skills: NameList
     equipment: NameList
@@ -71,7 +83,9 @@ class AnalyzeOption(StrategyOption):
     price: BoundedMoney
     variable_cost_per_unit: BoundedMoney
     fixed_startup_costs: BoundedMoney
-    minutes_per_unit: Sourced[Annotated[int, Field(ge=0, le=MAX_MINUTES_PER_UNIT)]]
+    minutes_per_unit: MinutesPerUnit = MinutesPerUnit(
+        value=DEFAULT_MINUTES_PER_UNIT, source="assumption"
+    )
     required_skills: NameList = Field(default_factory=list)
     required_equipment: NameList = Field(default_factory=list)
     opportunity_id: OpportunityId | None = None

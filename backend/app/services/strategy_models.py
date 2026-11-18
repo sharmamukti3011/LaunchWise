@@ -20,6 +20,10 @@ SignalStrength = Literal["low", "medium", "high"]
 EvidenceDirection = Literal["supports", "against"]
 
 
+# One parametrised type, shared with the request model, so a subclass default stays compatible.
+HoursPerWeek = Sourced[Annotated[int, Field(ge=0, le=HOURS_IN_WEEK)]]
+
+
 class ConstraintProfile(BaseModel):
     """Everything we know about the entrepreneur's real constraints."""
 
@@ -28,7 +32,7 @@ class ConstraintProfile(BaseModel):
     budget: Money
     units_per_day: Annotated[int, Field(ge=0)]
     days_per_week: Annotated[int, Field(ge=0, le=7)]
-    hours_per_week: Sourced[Annotated[int, Field(ge=0, le=HOURS_IN_WEEK)]]
+    hours_per_week: HoursPerWeek
     skills: list[str]
     equipment: list[str]
     location: str
