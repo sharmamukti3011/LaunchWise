@@ -8,16 +8,19 @@ In memory only, with an injected clock. Two rules shape the API:
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 from functools import wraps
-from typing import Concatenate, Literal, ParamSpec, Protocol, TypeVar
+from typing import Concatenate, Literal, ParamSpec, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.engine.approval_payload import hash_model
 from app.engine.approval_rules import GATED_ACTIONS, InvalidTransition, State, check_transition
+from app.services.clock import Clock, SystemClock
+
+__all__ = ["Clock", "SystemClock"]  # re-exported: they used to live here
 
 DEFAULT_TTL = timedelta(minutes=15)
 
@@ -38,15 +41,6 @@ _CONSUMING_MOVES = {
 }
 # The state a run must be in when an approval for an action is requested.
 _REQUEST_STATE: dict[str, State] = {action: src for (src, _), action in GATED_ACTIONS.items()}
-
-
-class Clock(Protocol):
-    def now(self) -> datetime: ...
-
-
-class SystemClock:
-    def now(self) -> datetime:
-        return datetime.now(UTC)
 
 
 # ---- errors -----------------------------------------------------------------------------------

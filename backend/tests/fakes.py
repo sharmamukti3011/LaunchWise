@@ -1,5 +1,6 @@
 """Test doubles for injected collaborators."""
 
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
@@ -17,6 +18,15 @@ class FakeClock:
 
     def advance(self, delta: timedelta) -> None:
         self._now += delta
+
+
+class SlowClock(FakeClock):
+    """Sleeps on every read, widening any gap between 'check' and 'record' so a missing lock
+    shows up as a failing concurrency test instead of passing by luck."""
+
+    def now(self) -> datetime:
+        time.sleep(0.002)
+        return super().now()
 
 
 class FakeDeployer:

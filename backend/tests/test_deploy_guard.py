@@ -1,8 +1,7 @@
 """DeployGuard: a thin wrapper. The approval check lives in transition(DEPLOYING, payload)."""
 
 import threading
-import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -29,7 +28,7 @@ from tests.approval_helpers import (
     to_launch_approved,
     to_strategy_approved,
 )
-from tests.fakes import FakeClock, FakeDeployer
+from tests.fakes import FakeClock, FakeDeployer, SlowClock
 
 # ---- happy path and ordering ------------------------------------------------------------------
 
@@ -200,16 +199,8 @@ def test_deployer_failure_ends_failed_keeps_the_approval_spent_and_chains_the_ca
 # ---- concurrency ------------------------------------------------------------------------------
 
 
-class _SlowClock(FakeClock):
-    """Widens the gap between 'check the approval' and 'spend it' so a missing lock shows up."""
-
-    def now(self) -> datetime:
-        time.sleep(0.002)
-        return super().now()
-
-
 def test_concurrent_deploys_with_one_approval_deploy_exactly_once() -> None:
-    svc = make_service(_SlowClock())
+    svc = make_service(SlowClock())
     to_launch_approved(svc, strategy())
     deployer = FakeDeployer()
     guard = DeployGuard(svc, deployer)
