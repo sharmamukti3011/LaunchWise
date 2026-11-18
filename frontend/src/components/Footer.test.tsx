@@ -13,6 +13,10 @@ describe("Footer", () => {
     expect(html).toMatch(/<a[^>]*href="#contact"[^>]*>Contact<\/a>/);
   });
 
+  it("still points at #contact, which the page turns into 'expand and scroll'", () => {
+    expect(html).toContain('href="#contact"');
+  });
+
   it("is a landmark footer and opens no external pages", () => {
     expect(html.startsWith("<footer")).toBe(true);
     expect(html).not.toContain("target=");

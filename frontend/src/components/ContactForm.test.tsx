@@ -9,8 +9,10 @@ const noop = () => undefined;
 // The attribute, not the Tailwind class "disabled:opacity-60".
 const DISABLED_BUTTON = /<button[^>]*\sdisabled(=|\s|>)/;
 
-function render(state: ContactState = initialState): string {
-  return renderToStaticMarkup(<ContactFormView state={state} onChange={noop} onSubmit={noop} />);
+function render(state: ContactState = initialState, open = true): string {
+  return renderToStaticMarkup(
+    <ContactFormView state={state} open={open} onToggle={noop} onChange={noop} onSubmit={noop} />,
+  );
 }
 
 describe("ContactFormView", () => {
@@ -76,5 +78,56 @@ describe("ContactFormView", () => {
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<b>hi</b>");
     expect(html).toContain("&lt;img");
+  });
+});
+
+
+describe("collapsed by default", () => {
+  const collapsed = render(initialState, false);
+  const expanded = render(initialState, true);
+
+  it("keeps id='contact' on the section so the footer link has a target", () => {
+    expect(collapsed).toMatch(/<section[^>]*id="contact"/);
+  });
+
+  it("shows a small 'Contact us' section with one line of text and a 'Write to us' button", () => {
+    expect(collapsed).toContain("Contact us");
+    expect(collapsed).toContain("Write to us");
+    expect(collapsed.match(/<p\b/g)).toHaveLength(1);
+  });
+
+  it("has a real toggle button: type=button, aria-expanded=false, controlling the form", () => {
+    const button = /<button[^>]*aria-expanded="false"[^>]*>/.exec(collapsed)?.[0] ?? "";
+    expect(button).toContain('type="button"');
+    expect(button).toContain('aria-controls="contact-form-panel"');
+    expect(collapsed).toMatch(/<div[^>]*id="contact-form-panel"[^>]*\shidden(=|\s|>)/);
+  });
+
+  it("expands: aria-expanded=true and the form is no longer hidden", () => {
+    expect(expanded).toMatch(/<button[^>]*aria-expanded="true"/);
+    expect(expanded).not.toMatch(/<div[^>]*id="contact-form-panel"[^>]*\shidden(=|\s|>)/);
+    expect(expanded).toContain("Hide form");
+  });
+
+  it("keeps the honeypot in the form, hidden from sighted users and screen readers", () => {
+    for (const html of [collapsed, expanded]) {
+      expect(html).toMatch(/aria-hidden="true"[^>]*>\s*<label[^>]*>Leave this field empty/);
+      expect(html).toContain('tabindex="-1"');
+    }
+  });
+
+  it("keeps the success message visible after a send, even when the form is collapsed", () => {
+    const sent = { values: EMPTY_VALUES, status: "sent" as const, outcome: "sent" as const };
+    const html = render(sent, false);
+    expect(html).toContain(CONTACT_TEXT.sent);
+    expect(html).toMatch(/role="status"/);
+    // Outside the hidden form, so collapsing does not hide it.
+    expect(html.indexOf(CONTACT_TEXT.sent)).toBeLessThan(html.indexOf('id="contact-form-panel"'));
+  });
+
+  it("keeps a draft in the form while it is collapsed", () => {
+    const draft = { ...EMPTY_VALUES, name: "Asha" };
+    const html = render({ values: draft, status: "idle", outcome: null }, false);
+    expect(html).toContain('value="Asha"');
   });
 });
