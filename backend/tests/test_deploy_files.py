@@ -191,3 +191,12 @@ def test_a_copy_instruction_in_the_backend_dockerfile_includes_the_dataset() -> 
     assert any(relative == s or relative.startswith(s.rstrip("/") + "/") for s in sources), (
         f"no COPY in backend/Dockerfile covers {relative}; COPY sources: {sources}"
     )
+
+
+def test_analyze_requests_are_size_capped_before_they_reach_the_backend() -> None:
+    caddy = directives("frontend/Caddyfile")
+    block = re.search(r"handle\s+/api/analyze\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block, "expected a dedicated handle /api/analyze block"
+    assert re.search(r"request_body\s*\{[^}]*max_size\s+32KB", block.group(1))
+    assert "reverse_proxy backend:8000" in block.group(1)
+    assert caddy.index("handle /api/analyze") < caddy.index("handle /api/*")

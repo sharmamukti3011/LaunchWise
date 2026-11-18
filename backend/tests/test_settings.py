@@ -82,6 +82,18 @@ def test_contact_defaults_are_conservative() -> None:
     assert settings.contact_rate_window_global_seconds == 3600  # the global cap is per hour
 
 
+def test_analyze_is_limited_to_60_requests_a_minute_per_client_by_default() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.analyze_rate_limit_per_ip == 60
+    assert settings.analyze_rate_window_seconds == 60
+
+
+@pytest.mark.parametrize("field", ["analyze_rate_limit_per_ip", "analyze_rate_window_seconds"])
+def test_analyze_rate_limit_settings_must_be_positive(field: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: 0})  # type: ignore[arg-type]
+
+
 def test_production_with_contact_disabled_needs_no_mailbox_values() -> None:
     # The first deploy must work before Titan details exist.
     settings = Settings(_env_file=None, app_env="production", contact_enabled=False)

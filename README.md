@@ -39,13 +39,49 @@ curl -fsS https://launchwise.pro/api/health
 - **Secrets** live only in the server-side `.env`, loaded through `env_file`. They are not in the repo, the images, or the compose file.
 - **Contact form** (`POST /api/contact`) is off until you set `CONTACT_ENABLED=true`; while off it answers 503 and never touches SMTP. To enable it: fill the `SMTP_*` and `CONTACT_RECIPIENT` values in `.env` (the Titan host, port and security mode are still `TODO(verify)`), set `CONTACT_ENABLED=true`, then `docker compose up -d --force-recreate backend`. In production the backend refuses to start with the form enabled and the example placeholders, an empty password, or `SMTP_SECURITY=none`. The recipient is fixed in `.env`; a visitor cannot choose it.
 - **Contact abuse limits** are env-tunable with no code change: per visitor address (default 5 per 10 minutes) and across everyone (default 200 per hour). Edit them in `.env` and recreate the backend as above. Rate limits key on the real visitor address: Caddy sets `X-Forwarded-For`, and the backend trusts it only from Caddy's fixed address (`FORWARDED_ALLOW_IPS`).
-- **Logs** hold no personal data: uvicorn's access log is off, and the contact code logs outcomes only (`sent`, `honeypot`, `rate_limited`, `delivery_failed`), never a name, email, message, address or password.
+- **Logs** hold no personal data: uvicorn's access log is off, and the contact and analyze code log outcomes only (`sent`, `honeypot`, `rate_limited`, `delivery_failed`, `ok`, `invalid_scenario`), never a name, email, message, location, address or password. They are printed to stdout, so `docker compose logs backend` shows them.
 - **Certificates** are kept in the `caddy-data` volume. Do not run `docker compose down -v`, or the next start re-requests them and can hit Let's Encrypt rate limits.
 - **HSTS starts short** (`max-age=300`, no `includeSubDomains`, no `preload`) so a mistake is cheap to undo. Once launch works, raise it in `frontend/Caddyfile` in steps (a day, a week, then months). Add `includeSubDomains` only if every subdomain serves HTTPS, and `preload` only as a deliberate, hard-to-reverse choice.
 - **Content-Security-Policy** is `default-src 'self'`. Loosen it if the storefront template needs inline styles or external assets.
 - **Network:** the compose network uses the fixed subnet `10.77.0.0/24` so the backend can trust proxy headers from Caddy's address only. `TODO(verify)`: make sure it doesn't clash with another network on the VPS.
 - **Non-root ports:** Caddy binds 80 and 443 as an unprivileged user through the `net.ipv4.ip_unprivileged_port_start=0` sysctl in `docker-compose.yml`. This worked locally (Docker 29 on Colima). `TODO(verify)` on the VPS. If the host refuses the sysctl, fall back to `cap_add: [NET_BIND_SERVICE]` with `setcap cap_net_bind_service=+ep /usr/bin/caddy` in `frontend/Dockerfile` and remove `no-new-privileges` from the caddy service only (it blocks file capabilities). Caddy stays non-root either way.
 - **Local smoke test:** set `SITE_DOMAIN=localhost` in `.env`, run `docker compose up -d --build`, then use `curl -k https://localhost/api/health` (Caddy issues a local certificate, hence `-k`).
+
+## Try the analyze API
+`POST /api/analyze` takes a business scenario and returns the validated profile, feasibility numbers with their sources, ranked options, caveats and a step log. It needs no login and makes no Claude calls. Four saved scenarios live in `backend/tests/scenarios/` (run these from the repo root):
+
+| File | What it shows | Expected |
+|---|---|---|
+| `a_alternative_beats_thin_margin_original.json` | Pune home bakery; a better alternative beats a thin-margin original | recommends `custom-celebration-cakes` (83.25 vs 67.10) |
+| `b_strong_original_wins.json` | the tempting alternative needs equipment the owner lacks | keeps the original (85.10 vs 77.20) |
+| `c_no_viable_option.json` | the original loses money, the alternative is far over budget | recommends nothing |
+| `d_noida_feasibility_only.json` | a Noida high-protein breakfast business: no market data | `market_coverage: "none"`, original kept, no pivot |
+
+```bash
+# Dev server (make run-backend)
+curl -s http://localhost:8000/api/analyze -H 'Content-Type: application/json' \
+  --data @backend/tests/scenarios/a_alternative_beats_thin_margin_original.json | python3 -m json.tool
+
+# Local Docker stack (SITE_DOMAIN=localhost in .env; -k because Caddy uses a local certificate)
+curl -sk https://localhost/api/analyze -H 'Content-Type: application/json' \
+  --data @backend/tests/scenarios/a_alternative_beats_thin_margin_original.json | python3 -m json.tool
+
+# Live site
+curl -s https://launchwise.pro/api/analyze -H 'Content-Type: application/json' \
+  --data @backend/tests/scenarios/a_alternative_beats_thin_margin_original.json | python3 -m json.tool
+```
+
+One line per scenario (swap the URL for the local or live one):
+
+```bash
+for f in backend/tests/scenarios/*.json; do
+  printf '%-45s' "$(basename "$f")"
+  curl -s https://launchwise.pro/api/analyze -H 'Content-Type: application/json' --data @"$f" |
+    python3 -c "import sys,json; d=json.load(sys.stdin); r=d['ranking']; print(d['market_coverage'], '| recommended:', r['recommended_id'], '| ranked:', ', '.join(s['option_id']+' '+s['total'] for s in r['ranked']))"
+done
+```
+
+Limits: at most 6 options, bounded text and money, a 32KB body, and 60 requests per minute per visitor (`ANALYZE_RATE_LIMIT_PER_IP`, `ANALYZE_RATE_WINDOW_SECONDS`). Money in responses is always a string, never a float. Error replies name the field and a fixed message and never echo what you sent.
 
 ## Engineering and security decisions
 TODO: to be written.

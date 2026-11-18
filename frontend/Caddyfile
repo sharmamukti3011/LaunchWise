@@ -28,6 +28,14 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		reverse_proxy backend:8000
 	}
 
+	# The analyze request is a few KB of JSON. Same rule: this block stays above /api/*.
+	handle /api/analyze {
+		request_body {
+			max_size 32KB
+		}
+		reverse_proxy backend:8000
+	}
+
 	handle /api/* {
 		reverse_proxy backend:8000
 	}
