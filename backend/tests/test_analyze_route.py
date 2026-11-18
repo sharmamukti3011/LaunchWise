@@ -34,6 +34,17 @@ def settings(**overrides: Any) -> Settings:
     return Settings(_env_file=None, app_env="test", **overrides)
 
 
+# A complete fake mailbox, so the contact route is "ready" (no test can reach the network).
+MAILBOX: dict[str, Any] = {
+    "contact_enabled": True,
+    "smtp_host": "smtp.mail.test",
+    "smtp_port": 465,
+    "smtp_user": "mailbox@mail.test",
+    "smtp_password": "s3cret-value-xyz",
+    "contact_recipient": "owner@mail.test",
+}
+
+
 def make_client(
     clock: FakeClock | None = None,
     peer: tuple[str, int] = ("203.0.113.7", 50000),
@@ -191,7 +202,7 @@ def test_an_unknown_market_link_is_a_fixed_text_scenario_error(client: TestClien
 
 
 def test_the_validation_error_shape_also_applies_to_the_contact_route() -> None:
-    client = make_client(contact_enabled=True)
+    client = make_client(**MAILBOX)
     response = client.post("/api/contact", json={"name": "A", "email": "nope", "message": "short"})
     assert_generic_422(response)
 
@@ -238,7 +249,7 @@ def test_an_oversize_body_with_sentinels_is_not_echoed(client: TestClient) -> No
 
 
 def test_the_contact_endpoint_has_its_own_smaller_limit() -> None:
-    app = create_app(settings(contact_enabled=True), mail_sender=FakeMailSender())
+    app = create_app(settings(**MAILBOX), mail_sender=FakeMailSender())
     client = TestClient(app)
     small = json.dumps({"name": "Asha", "email": "a@b.com", "message": "x" * 20}).encode()
     over = small + b" " * (CONTACT_LIMIT + 1 - len(small))

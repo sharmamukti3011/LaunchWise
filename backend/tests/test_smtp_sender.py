@@ -224,3 +224,25 @@ def test_incomplete_settings_give_a_sender_that_fails_closed(missing: str) -> No
     assert isinstance(built, UnconfiguredMailSender)
     with pytest.raises(ContactDeliveryError):
         built.send(message())
+
+
+def test_a_titan_style_mailbox_uses_smtp_ssl_with_a_ten_second_timeout_from_settings() -> None:
+    # Host and port come only from settings. SSL is the default, so no mode needs to be set.
+    cfg = Settings(
+        _env_file=None,
+        app_env="test",
+        smtp_host="smtp.titan.email",
+        smtp_port=465,
+        smtp_user="box@mail.test",
+        smtp_password=PASSWORD,
+        contact_recipient="owner@mail.test",
+    )
+    assert cfg.smtp_security == "ssl"
+    built = mail_sender_from_settings(cfg, smtp_factory=FakeSMTP, smtp_ssl_factory=FakeSMTPSSL)
+    built.send(message())
+    [conn] = FakeSMTP.instances
+    assert isinstance(conn, FakeSMTPSSL)
+    assert conn.calls[0][1] == ("smtp.titan.email", 465)
+    assert conn.calls[0][2]["timeout"] == 10.0
+    assert [name for name, *_ in conn.calls] == ["connect", "login", "send_message", "close"]
+    assert conn.calls[1][1] == ("box@mail.test", PASSWORD)

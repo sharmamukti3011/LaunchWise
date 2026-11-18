@@ -27,7 +27,7 @@ class ContactRequest(BaseModel):
 
     name: Annotated[str, Field(min_length=1, max_length=100)]
     email: Annotated[str, Field(max_length=254)]
-    message: Annotated[str, Field(min_length=10, max_length=2000)]
+    message: Annotated[str, Field(min_length=1, max_length=2000)]
     # Honeypot: hidden in the real form, so only bots fill it. Anything here is a bot.
     website: str = ""
 
@@ -52,5 +52,11 @@ class ContactRequest(BaseModel):
         return value.replace("\r\n", "\n").replace("\r", "\n")
 
 
+SENT_TEXT = "Thanks, your message has been sent."
+
+
 class ContactResponse(BaseModel):
-    status: Literal["sent"]
+    """The same fixed answer for a real send and for a honeypot hit."""
+
+    status: Literal["sent"] = "sent"
+    message: str = SENT_TEXT

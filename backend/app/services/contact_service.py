@@ -14,6 +14,8 @@ from app.settings import Settings
 logger = logging.getLogger("launchwise.contact")
 
 OVERALL_KEY = "all-visitors"
+# The name is at most 100 characters; the subject is cut so one long name cannot make a huge header.
+MAX_SUBJECT_CHARS = 100
 # Only used when contact is enabled outside production without mailbox settings; production
 # refuses to start in that state (see Settings).
 UNCONFIGURED_ADDRESS = "unconfigured@localhost.invalid"
@@ -30,7 +32,7 @@ def build_contact_message(
     message["From"] = from_address
     message["To"] = recipient
     message["Reply-To"] = request.email
-    message["Subject"] = f"LaunchWise contact: {request.name}"
+    message["Subject"] = f"LaunchWise contact: {request.name}"[:MAX_SUBJECT_CHARS]
     message.set_content(
         "New message from the LaunchWise contact form.\n\n"
         f"Name: {request.name}\n"
@@ -76,9 +78,19 @@ class ContactService:
         try:
             self._sender.send(message)
         except ContactDeliveryError:
-            logger.warning("contact outcome=delivery_failed")
+            logger.warning("contact outcome=send_failed")
             raise
         logger.info("contact outcome=sent")
+
+
+def contact_startup_message(settings: Settings) -> str:
+    """One line for the startup log: ready, disabled or not configured, and which variables."""
+    status = settings.contact_status
+    if status == "ready":
+        return "Contact form: ready"
+    if status == "disabled":
+        return "Contact form: disabled (CONTACT_ENABLED is false)"
+    return f"Contact form: not configured ({'; '.join(settings.contact_problems)})"
 
 
 def build_contact_service(settings: Settings, sender: MailSender, clock: Clock) -> ContactService:

@@ -1,5 +1,6 @@
 """POST /api/contact end to end through the app, with fake mail and a fake clock."""
 
+import logging
 import smtplib
 from datetime import timedelta
 from typing import Any, cast
@@ -16,6 +17,9 @@ from tests.fakes import FakeClock, FakeMailSender
 URL = "/api/contact"
 CADDY = "10.77.0.10"  # Caddy's fixed address in docker-compose.yml
 GENERIC_DISABLED = {"detail": "The contact form is not available right now."}
+NOT_CONFIGURED = {"detail": "The contact form is not configured yet."}
+SENT_TEXT = "Thanks, your message has been sent."
+SENTINEL = "ZQSENTINEL"
 
 
 def good(**overrides: Any) -> dict[str, Any]:
@@ -35,6 +39,11 @@ def settings(**overrides: Any) -> Settings:
         "contact_enabled": True,
         "contact_recipient": "owner@mail.test",
         "smtp_user": "mailbox@mail.test",
+        # A complete mailbox, or the app would answer "not configured". Fake host: no test
+        # can reach the network (see conftest), and the mail sender is always a fake.
+        "smtp_host": "smtp.mail.test",
+        "smtp_port": 465,
+        "smtp_password": "s3cret-value-xyz",
     }
     data.update(overrides)
     return Settings(_env_file=None, **data)
@@ -64,7 +73,7 @@ def test_valid_submission_returns_sent_and_delivers_one_message() -> None:
     sender = FakeMailSender()
     response = make_client(sender).post(URL, json=good())
     assert response.status_code == 200
-    assert response.json() == {"status": "sent"}
+    assert response.json() == {"status": "sent", "message": SENT_TEXT}
     [message] = sender.sent
     assert message["To"] == "owner@mail.test"
     assert message["From"] == "mailbox@mail.test"
@@ -89,7 +98,8 @@ def test_honeypot_gets_the_same_success_response_and_nothing_is_sent() -> None:
     [
         {"email": "not-an-email"},
         {"name": ""},
-        {"message": "short"},
+        {"message": ""},
+        {"message": "x" * 2001},
         {"name": "Asha\r\nBcc: evil@x.test"},
         {"email": "a@b.com\r\nBcc: evil@x.test"},
         {"to": "attacker@example.com"},
@@ -162,20 +172,43 @@ def test_building_the_app_with_contact_disabled_creates_no_mail_sender(
 # ---- rate limiting through the route ----------------------------------------------------------
 
 
-def test_sixth_message_from_one_client_is_429_with_retry_after() -> None:
+def test_sixth_message_in_an_hour_from_one_client_is_429_with_retry_after() -> None:
     clock = FakeClock()
     client = make_client(FakeMailSender(), clock)
     for _ in range(5):
         assert client.post(URL, json=good()).status_code == 200
     response = client.post(URL, json=good())
     assert response.status_code == 429
-    assert response.headers["retry-after"] == "600"
-    assert set(response.json()) == {"detail"}
-    clock.advance(timedelta(seconds=240))
+    assert response.headers["retry-after"] == "3600"
+    assert response.json() == {"detail": "Too many messages. Please try again later."}
+    clock.advance(timedelta(minutes=59))
     assert client.post(URL, json=good()).status_code == 429
-    assert client.post(URL, json=good()).headers["retry-after"] == "360"
-    clock.advance(timedelta(seconds=360))
+    assert client.post(URL, json=good()).headers["retry-after"] == "60"
+    clock.advance(timedelta(minutes=1))
     assert client.post(URL, json=good()).status_code == 200
+
+
+def test_the_limit_defaults_to_five_per_hour_and_is_tunable_from_settings() -> None:
+    defaults = Settings(_env_file=None)
+    assert (defaults.contact_rate_limit_per_ip, defaults.contact_rate_window_seconds) == (5, 3600)
+    clock = FakeClock()
+    tuned = make_client(
+        FakeMailSender(), clock, contact_rate_limit_per_ip=2, contact_rate_window_seconds=60
+    )
+    assert [tuned.post(URL, json=good()).status_code for _ in range(3)] == [200, 200, 429]
+    clock.advance(timedelta(seconds=60))
+    assert tuned.post(URL, json=good()).status_code == 200
+
+
+def test_the_contact_limit_uses_the_same_client_identification_as_analyze() -> None:
+    # Both routes key on request.client.host, which uvicorn's proxy-headers support sets from
+    # Caddy's X-Forwarded-For. Same app, same visitor address: separate limiters, same key.
+    import inspect
+
+    from app.routes import analyze, contact
+
+    assert "request.client.host" in inspect.getsource(contact.submit_contact)
+    assert "request.client.host" in inspect.getsource(analyze.analyze)
 
 
 def test_limits_come_from_settings() -> None:
@@ -275,3 +308,168 @@ def test_cors_allows_only_the_configured_origin_for_post() -> None:
     blocked = client.post(URL, json=good(), headers={"Origin": "https://evil.example"})
     assert allowed.headers.get("access-control-allow-origin") == "http://localhost:5173"
     assert "access-control-allow-origin" not in blocked.headers
+
+
+# ---- not configured ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "missing", ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "contact_recipient"]
+)
+def test_missing_mailbox_settings_give_a_fixed_not_configured_error_and_the_app_still_boots(
+    missing: str,
+) -> None:
+    sender = FakeMailSender()
+    app = create_app(settings(**{missing: None}), mail_sender=sender)  # boots, even in...
+    client = TestClient(app, client=("203.0.113.7", 50000))
+    response = client.post(URL, json=good())
+    assert (response.status_code, response.json()) == (503, NOT_CONFIGURED)
+    assert sender.sent == []
+    assert client.get("/api/health").status_code == 200  # ...and the rest of the app works
+
+
+def test_the_app_boots_in_production_with_contact_enabled_and_nothing_configured() -> None:
+    app = create_app(Settings(_env_file=None, app_env="production", contact_enabled=True))
+    client = TestClient(app)
+    assert client.post(URL, json=good()).json() == NOT_CONFIGURED
+    assert client.get("/api/health").status_code == 200
+
+
+def test_with_nothing_set_at_all_the_answer_is_not_configured() -> None:
+    client = TestClient(create_app(Settings(_env_file=None, app_env="test")))
+    assert client.post(URL, json=good()).json() == NOT_CONFIGURED
+
+
+def test_example_placeholders_count_as_not_configured() -> None:
+    client = make_client(
+        FakeMailSender(), smtp_host="smtp.example.invalid", smtp_password="changeme"
+    )
+    assert client.post(URL, json=good()).json() == NOT_CONFIGURED
+
+
+def test_not_configured_answers_even_an_invalid_payload_and_reveals_nothing() -> None:
+    client = make_client(FakeMailSender(), smtp_host=None)
+    for body in (good(email="nope"), {}):
+        response = client.post(URL, json=body)
+        assert (response.status_code, response.json()) == (503, NOT_CONFIGURED)
+    text = response.text.lower()
+    for word in ("smtp", "password", "env", "titan", "mailbox", "smtp_host"):
+        assert word not in text
+
+
+def test_a_configured_but_disabled_form_says_it_is_not_available_not_unconfigured() -> None:
+    client = make_client(FakeMailSender(), contact_enabled=False)
+    assert client.post(URL, json=good()).json() == GENERIC_DISABLED
+
+
+# ---- the real sender is built from settings, never from code ----------------------------------
+
+
+def test_nothing_in_the_app_hard_codes_the_mail_host() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "app"
+    for path in root.rglob("*.py"):
+        text = path.read_text().lower()
+        assert "titan.email" not in text, path.name  # the host comes from SMTP_HOST
+
+
+def test_tests_cannot_open_a_network_connection() -> None:
+    import smtplib
+
+    with pytest.raises(RuntimeError, match="network"):
+        smtplib.SMTP_SSL("smtp.titan.email", 465, timeout=10)
+
+
+# ---- logs and responses never carry visitor data ----------------------------------------------
+
+CLIENT = "198.51.100.99"
+FIELDS = ("name", "email", "message", "website")
+
+
+def sentinel_body(field: str) -> dict[str, Any]:
+    value = {
+        "name": f"{SENTINEL} Name",
+        "email": f"{SENTINEL.lower()}@example.com",
+        "message": f"Please call about {SENTINEL}.",
+        "website": f"http://{SENTINEL}.example",
+    }[field]
+    return good(**{field: value})
+
+
+@pytest.mark.parametrize("field", FIELDS)
+def test_a_sentinel_in_any_contact_field_never_reaches_a_log_or_a_response(
+    field: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    sender = FakeMailSender()
+    client = make_client(sender, peer=(CLIENT, 50000))
+    body = sentinel_body(field)
+    texts = [client.post(URL, json=body).text]  # sent, or honeypot for "website"
+    # Validation failure with the sentinel inside an otherwise bad payload.
+    texts.append(client.post(URL, json={**body, "email": f"{SENTINEL}-not-an-email"}).text)
+    texts.append(client.post(URL, json={**body, "name": f"{SENTINEL}\r\nBcc: x@y.test"}).text)
+    # Send failure whose own message contains the sentinel and the address.
+    failing = FakeMailSender(fail_with=ContactDeliveryError(f"{SENTINEL} {CLIENT} smtp.host.test"))
+    texts.append(make_client(failing, peer=(CLIENT, 50000)).post(URL, json=body).text)
+    # Rate limited.
+    limited = make_client(FakeMailSender(), peer=(CLIENT, 50000), contact_rate_limit_per_ip=1)
+    limited.post(URL, json=body)
+    texts.append(limited.post(URL, json=body).text)
+    # Not configured and disabled.
+    texts.append(make_client(FakeMailSender(), smtp_host=None).post(URL, json=body).text)
+    texts.append(make_client(FakeMailSender(), contact_enabled=False).post(URL, json=body).text)
+
+    for text in texts:
+        assert SENTINEL.lower() not in text.lower() and CLIENT not in text
+    assert SENTINEL.lower() not in caplog.text.lower()
+    assert CLIENT not in caplog.text
+    for private in ("Asha", "asha@example.com", "smtp.host.test", "s3cret-value-xyz"):
+        assert private not in caplog.text
+
+
+def test_contact_logs_are_the_four_outcomes_and_nothing_else(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="launchwise.contact")
+    clock = FakeClock()
+    ok = make_client(FakeMailSender(), clock, contact_rate_limit_per_ip=1)
+    ok.post(URL, json=good())  # sent
+    ok.post(URL, json=good())  # rate_limited
+    make_client(FakeMailSender()).post(URL, json=good(website="x"))  # honeypot
+    make_client(FakeMailSender(fail_with=ContactDeliveryError("x"))).post(URL, json=good())
+    lines = [
+        r.getMessage()
+        for r in caplog.records
+        if r.name == "launchwise.contact" and r.getMessage().startswith("contact outcome=")
+    ]
+    assert lines == [
+        "contact outcome=sent",
+        "contact outcome=rate_limited",
+        "contact outcome=honeypot",
+        "contact outcome=send_failed",
+    ]
+
+
+# ---- startup line -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("overrides", "needle"),
+    [
+        ({}, "Contact form: ready"),
+        ({"contact_enabled": False}, "disabled (CONTACT_ENABLED is false)"),
+        ({"smtp_host": None}, "not configured (SMTP_HOST is not set)"),
+        ({"smtp_password": "changeme"}, "SMTP_PASSWORD is still the example placeholder"),
+        ({"smtp_port": None}, "SMTP_PORT is not set"),
+    ],
+)
+def test_startup_logs_whether_contact_is_ready_and_what_is_missing_never_values(
+    overrides: dict[str, Any], needle: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="launchwise.contact"):
+        create_app(settings(**overrides))
+    [line] = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Contact form:")]
+    assert needle in line
+    for value in ("s3cret-value-xyz", "mailbox@mail.test", "owner@mail.test", "smtp.mail.test"):
+        assert value not in line

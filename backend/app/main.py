@@ -14,7 +14,7 @@ from app.services.analyze_service import AnalyzeService, ScenarioError
 from app.services.call_budget import CallBudget
 from app.services.claude_client import claude_client_from_settings, claude_startup_message
 from app.services.clock import Clock, SystemClock
-from app.services.contact_service import build_contact_service
+from app.services.contact_service import build_contact_service, contact_startup_message
 from app.services.demo_catalog import load_demo_catalog
 from app.services.demo_service import DemoService
 from app.services.mail import MailSender, mail_sender_from_settings
@@ -64,12 +64,21 @@ def create_app(
     app.add_exception_handler(ScenarioError, handle_scenario_error)
 
     # One service per feature for the app's lifetime: the rate limiters hold state between
-    # requests. While the contact form is disabled no mail sender is built, so SMTP is untouched.
+    # requests. Missing mailbox settings never stop the app. The form answers "not configured",
+    # and no mail sender is built until the settings are complete and the form is enabled.
+    contact_status = settings.contact_status
     app.state.contact_service = None
-    if settings.contact_enabled:
+    app.state.contact_unavailable = "disabled" if contact_status == "disabled" else "not_configured"
+    if contact_status == "ready":
         app.state.contact_service = build_contact_service(
             settings, mail_sender or mail_sender_from_settings(settings), clock
         )
+    logging.getLogger("launchwise.contact").log(
+        logging.WARNING
+        if contact_status == "not_configured" and settings.contact_enabled
+        else logging.INFO,
+        contact_startup_message(settings),
+    )
     gateway = AnalyzeGateway(
         AnalyzeService(market, clock),
         RateLimiter(

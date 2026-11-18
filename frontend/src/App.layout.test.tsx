@@ -23,6 +23,10 @@ describe("page layout", () => {
   });
 
   it("does not pin the footer with fixed or sticky positioning", () => {
-    expect(html).not.toMatch(/\b(fixed|sticky|absolute)\b/);
+    // Only the page structure is checked: the contact form's off-screen honeypot is absolute.
+    const wrapper = /^<div class="([^"]*)"/.exec(html)?.[1] ?? "";
+    const footer = /<footer class="([^"]*)"/.exec(html)?.[1] ?? "";
+    expect(wrapper).not.toMatch(/\b(fixed|sticky|absolute)\b/);
+    expect(footer).not.toMatch(/\b(fixed|sticky|absolute)\b/);
   });
 });

@@ -11,6 +11,7 @@ router = APIRouter()
 
 # Generic on purpose: nothing about configuration, mailbox or the SMTP server reaches a visitor.
 DISABLED_DETAIL = "The contact form is not available right now."
+NOT_CONFIGURED_DETAIL = "The contact form is not configured yet."
 RATE_LIMITED_DETAIL = "Too many messages. Please try again later."
 DELIVERY_FAILED_DETAIL = "We could not send your message. Please try again later."
 
@@ -19,7 +20,9 @@ def require_contact_service(request: Request) -> ContactService:
     """Resolved before the body is validated, so a disabled form answers 503 for any payload."""
     service = request.app.state.contact_service
     if service is None:
-        raise HTTPException(status_code=503, detail=DISABLED_DETAIL)
+        reason = request.app.state.contact_unavailable
+        detail = NOT_CONFIGURED_DETAIL if reason == "not_configured" else DISABLED_DETAIL
+        raise HTTPException(status_code=503, detail=detail)
     return cast(ContactService, service)
 
 
@@ -41,4 +44,4 @@ def submit_contact(
         ) from exc
     except ContactDeliveryError as exc:
         raise HTTPException(status_code=502, detail=DELIVERY_FAILED_DETAIL) from exc
-    return ContactResponse(status="sent")
+    return ContactResponse()

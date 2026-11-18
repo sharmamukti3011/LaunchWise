@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DemoError, fetchScenarios, runScenario } from "./api/demo";
 import type { DemoRun, DemoScenario } from "./api/demo";
+import { ContactForm } from "./components/ContactForm";
 import { Footer } from "./components/Footer";
 import { RunView } from "./components/RunView";
 import { ScenarioPicker } from "./components/ScenarioPicker";
@@ -98,6 +99,8 @@ export default function App() {
         )}
 
         {run && <RunView key={runCount} run={run} />}
+
+        <ContactForm />
       </main>
       <Footer />
     </div>

@@ -222,6 +222,26 @@ def test_the_overall_window_is_independent_of_the_per_client_window(
     service.submit(request(), "198.51.100.2")
 
 
+# ---- subject ----------------------------------------------------------------------------------
+
+
+def test_the_subject_names_the_visitor() -> None:
+    message = build_contact_message(request(), from_address=FROM, recipient=RECIPIENT)
+    assert message["Subject"] == "LaunchWise contact: Asha Patil"
+
+
+def test_a_very_long_name_is_truncated_to_a_safe_subject_length() -> None:
+    message = build_contact_message(request(name="N" * 100), from_address=FROM, recipient=RECIPIENT)
+    assert len(message["Subject"]) <= 100 and message["Subject"].startswith("LaunchWise contact: N")
+    assert "\n" not in message["Subject"] and "\r" not in message["Subject"]
+
+
+def test_the_visitors_address_is_only_ever_in_reply_to_never_in_from() -> None:
+    message = build_contact_message(request(), from_address=FROM, recipient=RECIPIENT)
+    assert message["From"] == FROM and "asha@example.com" not in message["From"]
+    assert message["Reply-To"] == "asha@example.com"
+
+
 # ---- logging ----------------------------------------------------------------------------------
 
 
@@ -243,7 +263,7 @@ def test_logs_outcomes_only_never_visitor_data_or_the_client_address(
         "contact outcome=sent",
         "contact outcome=rate_limited",
         "contact outcome=honeypot",
-        "contact outcome=delivery_failed",
+        "contact outcome=send_failed",
     ]
     for private in ("Asha", "asha@example.com", "cake for Saturday", "198.51.100", RECIPIENT):
         assert private not in caplog.text

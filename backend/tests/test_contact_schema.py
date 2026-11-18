@@ -111,7 +111,7 @@ def test_a_trailing_line_separator_is_trimmed_not_kept() -> None:
     assert request.email == "a@b.com" and request.name == "Asha"
 
 
-@pytest.mark.parametrize("message", ["", "short", "         ", "x" * 2001])
+@pytest.mark.parametrize("message", ["", "         ", "x" * 2001])
 def test_message_length_is_enforced_after_trimming(message: str) -> None:
     with pytest.raises(ValidationError):
         build(message=message)
@@ -139,3 +139,18 @@ def test_clients_cannot_supply_recipients_or_headers(field: str) -> None:
 def test_a_filled_honeypot_is_still_a_valid_request() -> None:
     # The service decides what to do with it; rejecting here would tell bots they were caught.
     assert build(website="http://spam.example").website == "http://spam.example"
+
+
+def test_message_bounds_are_one_to_two_thousand_characters() -> None:
+    assert build(message="x").message == "x"
+    assert build(message="x" * 2000).message == "x" * 2000
+
+
+def test_field_bounds_match_the_form_contract() -> None:
+    assert build(name="n" * 100).name == "n" * 100
+    with pytest.raises(ValidationError):
+        build(name="n" * 101)
+    long_email = "a" * 64 + "@" + "b" * 63 + "." + "c" * 63 + "." + "d" * 57 + ".com"  # 254
+    assert len(long_email) == 254 and build(email=long_email).email == long_email
+    with pytest.raises(ValidationError):
+        build(email="a" + long_email)  # 255

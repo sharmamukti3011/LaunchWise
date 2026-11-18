@@ -53,7 +53,23 @@ def test_env_example_contains_placeholders_not_real_secrets() -> None:
     }
     assert values["SMTP_PASSWORD"] in {"changeme", "your-password-here"}
     assert values["ANTHROPIC_API_KEY"] == "your-key-here"
-    assert values["SMTP_HOST"].endswith(".invalid")
+    assert values["SMTP_USER"].endswith(".invalid") and values["CONTACT_RECIPIENT"].endswith(
+        ".invalid"
+    )
+
+
+def test_env_example_describes_the_titan_ssl_mailbox_without_real_credentials() -> None:
+    text = ENV_EXAMPLE.read_text()
+    values = dict(
+        line.split("=", 1) for line in text.splitlines() if "=" in line and not line.startswith("#")
+    )
+    assert (values["SMTP_HOST"], values["SMTP_PORT"], values["SMTP_SECURITY"]) == (
+        "smtp.titan.email",
+        "465",
+        "ssl",
+    )
+    assert values["CONTACT_RATE_LIMIT_PER_IP"] == "5"
+    assert values["CONTACT_RATE_WINDOW_SECONDS"] == "3600"
 
 
 # ---- contact settings and the production validator --------------------------------------------
@@ -75,9 +91,9 @@ def production(**overrides: object) -> Settings:
 
 def test_contact_defaults_are_conservative() -> None:
     settings = Settings(_env_file=None)
-    assert settings.smtp_security == "starttls"
+    assert settings.smtp_security == "ssl"
     assert settings.contact_rate_limit_per_ip == 5
-    assert settings.contact_rate_window_seconds == 600
+    assert settings.contact_rate_window_seconds == 3600  # five per hour
     assert settings.contact_rate_limit_global == 200
     assert settings.contact_rate_window_global_seconds == 3600  # the global cap is per hour
 
@@ -107,40 +123,68 @@ def test_production_with_contact_enabled_and_real_values_is_accepted() -> None:
 @pytest.mark.parametrize(
     "env_name", ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "contact_recipient"]
 )
-def test_production_with_contact_enabled_requires_every_mailbox_value(env_name: str) -> None:
-    with pytest.raises(ValidationError) as error:
-        production(**{env_name: None})
-    assert env_name.upper() in str(error.value)
+def test_a_missing_mailbox_value_makes_contact_not_configured_without_stopping_startup(
+    env_name: str,
+) -> None:
+    settings = production(**{env_name: None})  # no exception: the app must still boot
+    assert settings.contact_status == "not_configured"
+    assert any(env_name.upper() in problem for problem in settings.contact_problems)
 
 
 def test_blank_values_count_as_missing() -> None:
-    with pytest.raises(ValidationError, match="SMTP_HOST"):
-        production(smtp_host="  ")
+    settings = production(smtp_host="  ")
+    assert settings.contact_status == "not_configured"
+    assert "SMTP_HOST is not set" in settings.contact_problems
 
 
 @pytest.mark.parametrize(
     ("overrides", "needle"),
     [
         ({"smtp_port": 0}, "SMTP_PORT"),
-        ({"smtp_host": "smtp.example.invalid"}, "SMTP_HOST"),
-        ({"smtp_password": "changeme"}, "SMTP_PASSWORD"),
+        ({"smtp_host": "smtp.example.invalid"}, "SMTP_HOST is still the example placeholder"),
+        ({"smtp_user": "me@example.invalid"}, "SMTP_USER is still the example placeholder"),
+        ({"smtp_password": "changeme"}, "SMTP_PASSWORD is still the example placeholder"),
+        ({"contact_recipient": "x@example.invalid"}, "CONTACT_RECIPIENT is still"),
     ],
 )
-def test_production_rejects_the_example_placeholders(
+def test_the_example_placeholders_count_as_not_configured(
     overrides: dict[str, object], needle: str
 ) -> None:
-    with pytest.raises(ValidationError, match=needle):
-        production(**overrides)
+    settings = production(**overrides)
+    assert settings.contact_status == "not_configured"
+    assert any(needle in problem for problem in settings.contact_problems)
 
 
-def test_production_forbids_unencrypted_smtp() -> None:
-    with pytest.raises(ValidationError, match="SMTP_SECURITY"):
-        production(smtp_security="none")
+def test_a_complete_enabled_mailbox_is_ready_and_a_disabled_one_is_disabled() -> None:
+    assert production().contact_status == "ready" and production().contact_problems == []
+    assert production(contact_enabled=False).contact_status == "disabled"
+
+
+def test_with_nothing_set_contact_is_not_configured_and_names_every_missing_variable() -> None:
+    settings = Settings(_env_file=None)
+    assert settings.contact_status == "not_configured"
+    named = " ".join(settings.contact_problems)
+    for name in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "CONTACT_RECIPIENT"):
+        assert name in named
+
+
+def test_problems_name_variables_never_their_values() -> None:
+    settings = production(smtp_host="smtp.example.invalid", smtp_password="changeme")
+    text = " ".join(settings.contact_problems)
+    for value in ("smtp.example.invalid", "changeme", "s3cret-value-xyz", "owner@mail.test"):
+        assert value not in text
+
+
+def test_unencrypted_smtp_in_production_is_not_configured_not_a_crash() -> None:
+    settings = production(smtp_security="none")
+    assert settings.contact_status == "not_configured"
+    assert any("SMTP_SECURITY" in problem for problem in settings.contact_problems)
 
 
 @pytest.mark.parametrize("mode", ["starttls", "ssl"])
 def test_production_allows_encrypted_smtp_modes(mode: str) -> None:
-    assert production(smtp_security=mode).smtp_security == mode
+    settings = production(smtp_security=mode)
+    assert settings.smtp_security == mode and settings.contact_status == "ready"
 
 
 @pytest.mark.parametrize("env", ["development", "test"])
@@ -179,6 +223,4 @@ def test_password_never_appears_in_repr_str_dumps_or_validation_errors() -> None
         assert "s3cret-value-xyz" not in text
     assert settings.smtp_password is not None
     assert settings.smtp_password.get_secret_value() == "s3cret-value-xyz"
-    with pytest.raises(ValidationError) as error:  # a failing startup must not print the secret
-        production(smtp_host=None)
-    assert "s3cret-value-xyz" not in str(error.value)
+    assert "s3cret-value-xyz" not in " ".join(production(smtp_host=None).contact_problems)
