@@ -41,6 +41,31 @@ class AnthropicClaudeClient:
         return text
 
 
+_DISABLED_REASONS = {
+    "missing_key": "ANTHROPIC_API_KEY is not set",
+    "placeholder_key": "ANTHROPIC_API_KEY is still the .env.example placeholder",
+    "missing_model": "CLAUDE_MODEL is not set",
+    "placeholder_model": "CLAUDE_MODEL is still the .env.example placeholder",
+}
+
+
+def claude_startup_message(settings: Settings, *, injected: bool) -> str:
+    """One line for the startup log: on or off, and why. Never the key or the model name."""
+    caps = (
+        f"caps: {settings.claude_max_calls_per_session} calls per visitor, "
+        f"{settings.claude_max_calls_global} calls in total, counted since startup"
+    )
+    if injected:
+        return f"Claude explain: enabled (injected client); {caps}"
+    status = settings.claude_status
+    if status == "enabled":
+        return f"Claude explain: enabled; {caps}"
+    return (
+        f"Claude explain: disabled ({_DISABLED_REASONS[status]}); "
+        "explanations use the standard template"
+    )
+
+
 def claude_client_from_settings(settings: Settings) -> AnthropicClaudeClient | None:
     """None unless a real key and model are set, so a missing key just means the template."""
     if not settings.claude_enabled or settings.anthropic_api_key is None:

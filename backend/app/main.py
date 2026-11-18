@@ -12,7 +12,7 @@ from app.routes import analyze, contact, demo, health
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
 from app.services.call_budget import CallBudget
-from app.services.claude_client import claude_client_from_settings
+from app.services.claude_client import claude_client_from_settings, claude_startup_message
 from app.services.clock import Clock, SystemClock
 from app.services.contact_service import build_contact_service
 from app.services.demo_catalog import load_demo_catalog
@@ -82,12 +82,12 @@ def create_app(
     # The demo reuses the analyze gateway, so it shares its rate limit and its outcome logging.
     # The catalog is validated here, so a bad scenario file stops the app at startup.
     # Claude only explains. With no key and model, or when its caps are spent, a template is used.
+    injected = claude is not None
     claude = claude or claude_client_from_settings(settings)
-    if claude is None and settings.anthropic_api_key is not None:
-        logging.getLogger("launchwise.explain").warning(
-            "Claude is not enabled (a real ANTHROPIC_API_KEY and CLAUDE_MODEL are both needed); "
-            "explanations will use the template"
-        )
+    logging.getLogger("launchwise.explain").log(
+        logging.INFO if claude is not None else logging.WARNING,
+        claude_startup_message(settings, injected=injected),
+    )
     budget = CallBudget(
         per_key=settings.claude_max_calls_per_session, total=settings.claude_max_calls_global
     )

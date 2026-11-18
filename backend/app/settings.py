@@ -13,6 +13,11 @@ EXAMPLE_CLAUDE_KEY = "your-key-here"
 EXAMPLE_CLAUDE_MODEL = "your-model-name-here"
 
 
+ClaudeStatus = Literal[
+    "enabled", "missing_key", "placeholder_key", "missing_model", "placeholder_model"
+]
+
+
 class Settings(BaseSettings):
     # hide_input_in_errors keeps raw values (the mailbox password) out of startup error messages.
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore", hide_input_in_errors=True)
@@ -45,16 +50,24 @@ class Settings(BaseSettings):
     contact_rate_window_global_seconds: int = Field(default=3600, ge=1)
 
     @property
-    def claude_enabled(self) -> bool:
-        """True only with a real key and a model name; otherwise explanations use the template."""
+    def claude_status(self) -> ClaudeStatus:
+        """Why Claude explain is on or off. Never carries the key or the model name."""
         key = self.anthropic_api_key.get_secret_value().strip() if self.anthropic_api_key else ""
         model = (self.claude_model or "").strip()
-        return (
-            bool(key)
-            and bool(model)
-            and key != EXAMPLE_CLAUDE_KEY
-            and model != EXAMPLE_CLAUDE_MODEL
-        )
+        if not key:
+            return "missing_key"
+        if key == EXAMPLE_CLAUDE_KEY:
+            return "placeholder_key"
+        if not model:
+            return "missing_model"
+        if model == EXAMPLE_CLAUDE_MODEL:
+            return "placeholder_model"
+        return "enabled"
+
+    @property
+    def claude_enabled(self) -> bool:
+        """True only with a real key and a model name; otherwise explanations use the template."""
+        return self.claude_status == "enabled"
 
     @model_validator(mode="after")
     def _contact_needs_a_real_mailbox_in_production(self) -> Self:
