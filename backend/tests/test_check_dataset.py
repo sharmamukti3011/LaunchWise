@@ -83,11 +83,9 @@ def test_single_source_and_verified_entries_pass() -> None:
     assert find_problems(entries) == []
 
 
-def test_the_shipped_dataset_fails_the_gate_until_a_human_verifies_every_entry() -> None:
-    problems = find_problems(load_dataset().opportunities)
-    assert len(problems) == len(load_dataset().opportunities)
-    assert all("unverified_sample" in p for p in problems)
-    assert any("CHECK" in p for p in problems)  # open questions in a label also block the gate
+def test_the_shipped_dataset_passes_the_gate() -> None:
+    # Every entry is verified by the owner, cited with a real URL, and has no open notes.
+    assert find_problems(load_dataset().opportunities) == []
 
 
 @pytest.mark.parametrize("field", ["label", "evidence", "signal_summary"])
@@ -106,11 +104,10 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_the_script_exits_nonzero_on_the_shipped_data_and_lists_every_entry() -> None:
+def test_the_script_exits_zero_on_the_shipped_data() -> None:
     result = run_script()
-    assert result.returncode == 1
-    for entry in load_dataset().opportunities:
-        assert entry.id in result.stdout + result.stderr
+    assert result.returncode == 0, result.stdout
+    assert f"{len(load_dataset().opportunities)} entries" in result.stdout
 
 
 def test_the_script_exits_zero_on_a_clean_dataset(tmp_path: Path) -> None:

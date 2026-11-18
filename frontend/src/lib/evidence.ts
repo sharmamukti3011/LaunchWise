@@ -1,14 +1,25 @@
 import type { Opportunity } from "../api/demo";
 
-/** True for the TODO(verify) sample entries that ship until real, cited data replaces them. */
-export function isPlaceholder(
+export type EvidenceKind = "placeholder" | "verified" | "single_source" | "unverified";
+
+export const EVIDENCE_LABELS: Record<EvidenceKind, string> = {
+  placeholder: "Placeholder data: not a real market finding. Do not rely on it.",
+  verified: "Verified source",
+  single_source: "Single source cited",
+  unverified: "Source cited, not yet verified",
+};
+
+/**
+ * "Placeholder" is only for the old TODO-VERIFY stand-ins. A real, cited entry is either
+ * verified or "not yet verified": never a placeholder.
+ */
+export function evidenceKind(
   entry: Pick<Opportunity, "id" | "verification_status" | "label">,
-): boolean {
-  return (
-    entry.verification_status === "unverified_sample" ||
-    /^TODO-VERIFY/i.test(entry.id) ||
-    /TODO\(verify\)/i.test(entry.label)
-  );
+): EvidenceKind {
+  if (/^TODO-VERIFY/i.test(entry.id) || /TODO\(verify\)/i.test(entry.label)) return "placeholder";
+  if (entry.verification_status === "verified") return "verified";
+  if (entry.verification_status === "single_source") return "single_source";
+  return "unverified";
 }
 
 /** Only real http(s) links are clickable. `.invalid` is reserved and never resolves. */

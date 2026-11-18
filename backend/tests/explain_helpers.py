@@ -23,9 +23,9 @@ def reply(summary: str) -> str:
 
 # A valid explanation of the lead scenario: three sentences, only figures and IDs from the data.
 GOOD = (
-    "The engine recommends Custom celebration cakes, which scored 87.75 out of 100. "
+    "The engine recommends Custom celebration cakes, which scored 90.00 out of 100. "
     "Each cake leaves a margin of ₹900.00, or 64.29% of the price, and the up-front cost fits your "
     "budget of ₹10,000.00. "
-    "Treat it as a guide: the market entry PUNE-001 is still unverified, "
+    "Treat it as a guide: the market entry PUNE-001 is a verified source, "
     "and nothing here is a promise of profit."
 )

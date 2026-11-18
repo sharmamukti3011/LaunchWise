@@ -18,8 +18,10 @@ def recommended_option(analysis: AnalyzeResponse) -> OptionAnalysis | None:
     return option_by_id(analysis, analysis.ranking.recommended_id)
 
 
-def is_placeholder(entry_id: str, status: str) -> bool:
-    return status == "unverified_sample" or entry_id.upper().startswith("TODO-VERIFY")
+def is_placeholder(entry_id: str) -> bool:
+    """Only the old TODO-VERIFY stand-ins are placeholders. A real, cited entry that has not been
+    verified yet is "not yet verified", which is a different thing."""
+    return entry_id.upper().startswith("TODO-VERIFY")
 
 
 def figures(option: OptionAnalysis) -> list[dict[str, str]]:
@@ -82,7 +84,7 @@ def build_facts(analysis: AnalyzeResponse) -> dict[str, Any]:
                 "title": e.title,
                 "status": e.verification_status,
                 "signal": e.signal_strength,
-                "placeholder": is_placeholder(e.id, e.verification_status),
+                "placeholder": is_placeholder(e.id),
             }
             for e in analysis.evidence
         ],

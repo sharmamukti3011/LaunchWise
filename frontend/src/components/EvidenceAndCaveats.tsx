@@ -1,16 +1,21 @@
 import type { Analysis, Opportunity } from "../api/demo";
-import { isPlaceholder, safeHttpUrl } from "../lib/evidence";
+import { EVIDENCE_LABELS, evidenceKind, safeHttpUrl } from "../lib/evidence";
+import type { EvidenceKind } from "../lib/evidence";
+
+const CARD_STYLES: Record<EvidenceKind, { box: string; note: string }> = {
+  placeholder: { box: "border-amber-300 bg-amber-50", note: "text-amber-900" },
+  unverified: { box: "border-yellow-300 bg-yellow-50", note: "text-yellow-900" },
+  single_source: { box: "border-sky-200 bg-sky-50", note: "text-sky-900" },
+  verified: { box: "border-emerald-300 bg-emerald-50", note: "text-emerald-900" },
+};
 
 function EvidenceCard({ entry }: { entry: Opportunity }) {
-  const placeholder = isPlaceholder(entry);
+  const kind = evidenceKind(entry);
+  const style = CARD_STYLES[kind];
   const link = safeHttpUrl(entry.source_url);
   return (
-    <li className={`rounded border p-3 text-sm ${placeholder ? "border-amber-300 bg-amber-50" : "border-slate-200"}`}>
-      {placeholder && (
-        <p className="mb-1 font-medium text-amber-900">
-          Placeholder data: not a real market finding. Do not rely on it.
-        </p>
-      )}
+    <li className={`rounded border p-3 text-sm ${style.box}`}>
+      <p className={`mb-1 font-medium ${style.note}`}>{EVIDENCE_LABELS[kind]}</p>
       <p className="font-medium">{entry.title}</p>
       <p className="mt-1 text-slate-700">{entry.signal_summary}</p>
       <p className="mt-1 text-xs text-slate-600">

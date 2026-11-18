@@ -8,6 +8,7 @@ import pytest
 
 from app.services.call_budget import CallBudget
 from app.services.explanation_check import validate_summary
+from app.services.explanation_facts import is_placeholder
 from app.services.explanation_template import templated_summary
 from app.services.orchestrator import ClaudeUnavailable, ExplainService
 from tests.explain_helpers import GOOD, IDS, analysis_for, reply
@@ -49,7 +50,8 @@ def test_the_request_gives_claude_the_facts_and_the_rules_and_no_model_name() ->
     facts = json.loads(messages[0]["content"].split("FACTS:\n", 1)[1])
     assert facts["recommended"]["title"] == "Custom celebration cakes"
     assert facts["keep_original"] is False
-    assert any(e["id"] == "PUNE-001" and e["placeholder"] for e in facts["evidence"])
+    pune = next(e for e in facts["evidence"] if e["id"] == "PUNE-001")
+    assert pune["status"] == "verified" and pune["placeholder"] is False
     assert max_tokens <= 8000
     assert "$" not in messages[0]["content"] + system  # rupees everywhere
 
@@ -109,7 +111,7 @@ def test_the_good_explanation_passes() -> None:
 @pytest.mark.parametrize(
     "variant",
     [
-        "₹900", "₹900.00", "900", "64.29%", "₹10,000", "87.75", "100", "₹7,000.00", "₹3,000.00",
+        "₹900", "₹900.00", "900", "64.29%", "₹10,000", "90.00", "100", "₹7,000.00", "₹3,000.00",
     ],
 )  # fmt: skip
 def test_figures_in_any_spelling_of_a_response_number_are_allowed(variant: str) -> None:
@@ -305,3 +307,31 @@ def test_outcomes_are_logged_without_the_text_or_the_visitor(
         and "explain outcome=template reason=not_configured" in text
     )
     assert KEY not in text and "celebration" not in text and "₹" not in text
+
+
+# ---- the wording of the market caveat follows each entry's real status -------------------------
+
+
+def with_evidence(**changes: Any) -> Any:
+    analysis = analysis_for("pune-pivot")
+    return analysis.model_copy(
+        update={"evidence": [e.model_copy(update=changes) for e in analysis.evidence]}
+    )
+
+
+def test_verified_market_entries_are_not_called_placeholders_or_unverified() -> None:
+    text = templated_summary(analysis_for("pune-pivot"))
+    assert "placeholder" not in text.lower() and "unverified" not in text.lower()
+    assert "not yet verified" not in text.lower()
+
+
+def test_real_but_unverified_entries_are_described_as_not_yet_verified() -> None:
+    text = templated_summary(with_evidence(verification_status="unverified_sample"))
+    assert "not yet verified" in text and "placeholder" not in text.lower()
+
+
+def test_only_todo_verify_entries_are_called_placeholders() -> None:
+    text = templated_summary(with_evidence(id="TODO-VERIFY-PUNE-001"))
+    assert "placeholder" in text.lower()
+    assert is_placeholder("TODO-VERIFY-PUNE-001") and is_placeholder("todo-verify-x")
+    assert not is_placeholder("PUNE-001") and not is_placeholder("TEST-FAKE-001")

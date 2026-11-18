@@ -12,14 +12,14 @@
       "event_date": null,
       "is_evergreen": true,
       "retrieved_date": "2026-11-18",
-      "verification_status": "unverified_sample",
-      "verified_by": null,
-      "verified_on": null,
+      "verification_status": "verified",
+      "verified_by": "Mukti",
+      "verified_on": "2026-11-18",
       "signal_strength": "medium",
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 0,
-      "label": "Sourced from the cited page; not yet checked by a human."
+      "label": "Verified against the cited source on 18 Nov 2026."
     },
     {
       "id": "PUNE-002",
@@ -30,17 +30,17 @@
       "evidence": "Swiggy data: 2,28,102 modaks ordered nationwide during Ganesh Chaturthi 2025, led by Mumbai (69,240) and Pune (30,433).",
       "source_name": "Business Today",
       "source_url": "https://www.businesstoday.in/amp/latest/trends/story/indias-festive-food-boom-swiggy-records-over-22-lakh-orders-in-an-hour-during-navratri-and-durga-puja-498138-2025-10-14",
-      "event_date": null,
-      "is_evergreen": true,
+      "event_date": "2025-08-27",
+      "is_evergreen": false,
       "retrieved_date": "2026-11-18",
-      "verification_status": "unverified_sample",
-      "verified_by": null,
-      "verified_on": null,
+      "verification_status": "verified",
+      "verified_by": "Mukti",
+      "verified_on": "2026-11-18",
       "signal_strength": "low",
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 0,
-      "label": "Sourced from the cited page; not yet checked by a human. CHECK: this is a dated event (Ganesh Chaturthi 2025). Set its event_date and is_evergreen=false once the date is confirmed."
+      "label": "Verified against the cited source on 18 Nov 2026."
     },
     {
       "id": "PUNE-003",
@@ -54,14 +54,14 @@
       "event_date": null,
       "is_evergreen": true,
       "retrieved_date": "2026-11-18",
-      "verification_status": "unverified_sample",
-      "verified_by": null,
-      "verified_on": null,
+      "verification_status": "verified",
+      "verified_by": "Mukti",
+      "verified_on": "2026-11-18",
       "signal_strength": "low",
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 0,
-      "label": "Sourced from the cited page; not yet checked by a human. CHECK: this is a listing snapshot, not an evergreen fact. Keep a dated screenshot and re-check the rent before relying on it."
+      "label": "Rental listing snapshot, checked 18 Nov 2026; listings change."
     },
     {
       "id": "PUNE-004",
@@ -75,14 +75,14 @@
       "event_date": null,
       "is_evergreen": true,
       "retrieved_date": "2026-11-18",
-      "verification_status": "unverified_sample",
-      "verified_by": null,
-      "verified_on": null,
+      "verification_status": "verified",
+      "verified_by": "Mukti",
+      "verified_on": "2026-11-18",
       "signal_strength": "medium",
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 0,
-      "label": "Sourced from the cited page; not yet checked by a human."
+      "label": "Verified against the cited source on 18 Nov 2026."
     },
     {
       "id": "PUNE-005",
@@ -96,14 +96,14 @@
       "event_date": null,
       "is_evergreen": true,
       "retrieved_date": "2026-11-18",
-      "verification_status": "unverified_sample",
-      "verified_by": null,
-      "verified_on": null,
+      "verification_status": "verified",
+      "verified_by": "Mukti",
+      "verified_on": "2026-11-18",
       "signal_strength": "medium",
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 2,
-      "label": "Sourced from the cited page; not yet checked by a human."
+      "label": "Verified against the cited source on 18 Nov 2026."
     }
   ]
 }

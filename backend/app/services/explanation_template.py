@@ -10,10 +10,14 @@ from app.services.scoring import rupees
 
 
 def _caveat(analysis: AnalyzeResponse) -> str:
-    placeholders = any(is_placeholder(e.id, e.verification_status) for e in analysis.evidence)
-    if placeholders:
+    if any(is_placeholder(e.id) for e in analysis.evidence):
         return (
-            "Some inputs are assumptions and the market entries are unverified placeholders, "
+            "Some inputs are assumptions and some market entries are placeholders, "
+            "so treat this as a guide, not a promise of profit."
+        )
+    if any(e.verification_status != "verified" for e in analysis.evidence):
+        return (
+            "Some inputs are assumptions and some market sources are cited but not yet verified, "
             "so treat this as a guide, not a promise of profit."
         )
     return "Some inputs are assumptions, so treat this as a guide, not a promise of profit."

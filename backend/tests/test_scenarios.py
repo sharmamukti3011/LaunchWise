@@ -3,9 +3,10 @@
 Each expected score below can be worked out from the rules in `app/services/scoring.py`. The
 arithmetic is written next to the assertions so you can verify it with a pencil.
 Weights: margin 30, budget 20, capacity 20, skill/equipment 15, market signal 15.
-Every shipped dataset entry is still `unverified_sample`, so a linked option's market score is
-its signal points minus 15: low 30 - 15 = 15, medium 60 - 15 = 45. The links used here are PUNE-001
-(medium), PUNE-002 and PUNE-003 (both low). An original idea with no evidence gets a neutral 50.
+Every shipped dataset entry is `verified`, so a linked option's market score is its signal
+points with no deduction (the 15-point deduction applies only to entries that are not verified):
+low 30, medium 60. The links used here are PUNE-001 (medium), PUNE-003 (low) and PUNE-004
+(medium). An original idea with no evidence gets a neutral 50.
 """
 
 import json
@@ -91,28 +92,30 @@ def test_a_scores_by_dimension() -> None:
     # Custom cakes: price 1400, cost 500 -> margin 900 = 64.29% -> capped at 100.
     #   budget: 4000 + 500*6 = 7000; headroom 3000 = 30% -> 80.
     #   capacity: 100 min * 6 = 10 h <= 12 h -> 100. skills/equipment present -> 100.
-    #   market: PUNE-001 is a medium signal, 60, minus 15 for unverified -> 45.
-    #   total = (100*30 + 80*20 + 100*20 + 100*15 + 45*15) / 100 = 8775 / 100 = 87.75
+    #   market: PUNE-001 is a verified medium signal -> 60, no deduction.
+    #   total = (100*30 + 80*20 + 100*20 + 100*15 + 60*15) / 100 = 9000 / 100 = 90.00
     assert scores(result, "custom-celebration-cakes") == {
-        "margin": 100, "budget": 80, "capacity": 100, "skill_equipment": 100, "market_signal": 45,
+        "margin": 100, "budget": 80, "capacity": 100, "skill_equipment": 100, "market_signal": 60,
     }  # fmt: skip
-    assert total(result, "custom-celebration-cakes") == D("87.75")
+    assert total(result, "custom-celebration-cakes") == D("90.00")
     # Small shop: margin 600/900 = 66.67% -> 100. budget: 150000 + 300*6 is far over 10000 -> 0.
     #   capacity 90 min * 6 = 9 h -> 100.
     #   equipment: 1 of 3 required items missing -> floor(2/3*100) = 66.
-    #   market: PUNE-003 is a low signal, 30, minus 15 -> 15.
-    #   total = (100*30 + 0 + 100*20 + 66*15 + 15*15) / 100 = 62.15, but not viable.
+    #   market: PUNE-003 is a verified low signal -> 30, no deduction.
+    #   total = (100*30 + 0 + 100*20 + 66*15 + 30*15) / 100 = 6440 / 100 = 64.40, but not viable.
     assert scores(result, "small-shop") == {
-        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 66, "market_signal": 15,
+        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 66, "market_signal": 30,
     }  # fmt: skip
-    assert total(result, "small-shop") == D("62.15")
+    assert total(result, "small-shop") == D("64.40")
     shop = next(s for s in result.ranking.ranked if s.option_id == "small-shop")
     assert not shop.viable and "over budget" in shop.viability_issues
 
 
 def test_a_caveats_describe_the_recommended_option_only() -> None:
     kinds = [c.kind for c in run("a_alternative_beats_thin_margin_original").ranking.caveats]
-    assert "verification" in kinds  # the linked evidence is an unverified placeholder
+    # The linked evidence is verified, so there is no verification caveat. (Unverified evidence
+    # does add one: see test_unverified_evidence_is_called_out_in_the_message_and_caveats.)
+    assert "verification" not in kinds
     assert "assumption" in kinds and "engine_assumption" in kinds
     assert "missing_equipment" not in kinds
 
@@ -144,21 +147,22 @@ def test_b_scores_by_dimension() -> None:
     #   capacity: 60 min * 6 = 6 h -> 100.
     #   equipment: needs baking + deck oven + proofing basket; owner lacks 2 of 3
     #   -> floor(1/3*100) = 33.
-    #   market: PUNE-002 is a low signal, 30, minus 15 -> 15.
-    #   total = (100*30 + 100*20 + 100*20 + 33*15 + 15*15) / 100 = 77.20
+    #   market: PUNE-004 is a verified medium signal -> 60, no deduction.
+    #   total = (100*30 + 100*20 + 100*20 + 33*15 + 60*15) / 100 = 8395 / 100 = 83.95
+    #   Still below the original's 85.10, so the original is kept.
     assert scores(result, "sourdough-subscription") == {
-        "margin": 100, "budget": 100, "capacity": 100, "skill_equipment": 33, "market_signal": 15,
+        "margin": 100, "budget": 100, "capacity": 100, "skill_equipment": 33, "market_signal": 60,
     }  # fmt: skip
-    assert total(result, "sourdough-subscription") == D("77.20")
+    assert total(result, "sourdough-subscription") == D("83.95")
 
 
 def test_b_the_missing_equipment_is_what_decides_it() -> None:
     # Counterfactual: give the owner the two missing items. The same alternative now scores
-    # (100*30 + 100*20 + 100*20 + 100*15 + 15*15) / 100 = 87.25, beating the original's 85.10.
+    # (100*30 + 100*20 + 100*20 + 100*15 + 60*15) / 100 = 9400 / 100 = 94.00, beating 85.10.
     body = load("b_strong_original_wins")
     body["profile"]["equipment"] = ["oven", "mixer", "deck oven", "proofing basket"]
     result = run("b_strong_original_wins", body)
-    assert total(result, "sourdough-subscription") == D("87.25")
+    assert total(result, "sourdough-subscription") == D("94.00")
     assert result.ranking.recommended_id == "sourdough-subscription"
 
 
@@ -197,12 +201,12 @@ def test_c_scores_by_dimension_and_reasons() -> None:
     assert original.viability_issues == ["no positive margin"]
     # Premium: margin 800/1200 = 66.67% -> 100. budget: 40000 + 400*6 is far over 5000 -> 0.
     #   capacity 90 min * 6 = 9 h -> 100. equipment: walk-in fridge missing, 1 of 2 -> 50.
-    #   market: PUNE-001 is a medium signal, 60, minus 15 -> 45.
-    #   total = (100*30 + 0 + 100*20 + 50*15 + 45*15) / 100 = 6425 / 100 = 64.25; not viable.
+    #   market: PUNE-001 is a verified medium signal -> 60, no deduction.
+    #   total = (100*30 + 0 + 100*20 + 50*15 + 60*15) / 100 = 6650 / 100 = 66.50; not viable.
     assert scores(result, "premium-wedding-cakes") == {
-        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 50, "market_signal": 45,
+        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 50, "market_signal": 60,
     }  # fmt: skip
-    assert total(result, "premium-wedding-cakes") == D("64.25")
+    assert total(result, "premium-wedding-cakes") == D("66.50")
     premium = next(s for s in result.ranking.ranked if s.option_id == "premium-wedding-cakes")
     assert premium.viability_issues == ["over budget"]
 

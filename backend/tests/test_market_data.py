@@ -59,6 +59,23 @@ def test_the_shipped_dataset_is_the_five_cited_pune_entries() -> None:
         assert entry.source_name.strip(), entry.id
 
 
+def test_every_shipped_entry_is_verified_by_the_owner_with_the_agreed_label() -> None:
+    labels = {"PUNE-003": "Rental listing snapshot, checked 18 Nov 2026; listings change."}
+    for entry in load_dataset().opportunities:
+        assert entry.verification_status == "verified", entry.id
+        assert entry.verified_by == "Mukti" and str(entry.verified_on) == "2026-11-18", entry.id
+        expected = labels.get(entry.id, "Verified against the cited source on 18 Nov 2026.")
+        assert entry.label == expected, entry.id
+        assert "CHECK" not in entry.label and "TODO" not in entry.label.upper(), entry.id
+
+
+def test_the_dated_festive_entry_is_dated_not_evergreen() -> None:
+    entry = load_dataset().get("PUNE-002")
+    assert entry is not None
+    assert str(entry.event_date) == "2025-08-27" and entry.is_evergreen is False
+    assert load_dataset().get("PUNE-003").is_evergreen is True  # type: ignore[union-attr]
+
+
 def test_no_shipped_entry_claims_verification_without_a_verifier() -> None:
     # `verification_status` is set by a human after checking the source. Until then it must not
     # say "verified", and a verified entry must name who checked it and when.

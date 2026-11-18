@@ -45,7 +45,8 @@ def test_every_summary_is_labelled_as_simulated_demo_data() -> None:
         assert summary.simulated is True
         assert summary.notice == SIMULATED_NOTICE
     assert "simulated" in SIMULATED_NOTICE.lower()
-    assert "placeholder" in SIMULATED_NOTICE.lower()  # the market entries are unverified
+    assert "verification status" in SIMULATED_NOTICE.lower()  # market evidence shows its own
+    assert "placeholder" not in SIMULATED_NOTICE.lower()  # the market entries are real sources
 
 
 def test_the_lead_scenario_is_the_pune_bakery_at_ten_thousand_rupees() -> None:

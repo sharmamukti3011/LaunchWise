@@ -2,7 +2,7 @@
 the image). A manifest names each scenario and points at an `AnalyzeRequest` JSON file.
 
 Everything here is simulated demo data: the inputs are made up for the walkthrough, and the
-market entries they link to are unverified placeholders. Every response says so.
+market entries they link to carry their own verification status. Every response says so.
 Loading validates the whole catalog, so a bad file stops the app at startup, not mid-demo.
 """
 
@@ -20,8 +20,8 @@ MANIFEST_NAME = "manifest.json"
 MAX_FILE_BYTES = 64 * 1024
 
 SIMULATED_NOTICE = (
-    "Simulated demo data: the inputs and prices are made up for this walkthrough, and the "
-    "market entries are unverified placeholders, not real findings."
+    "Simulated demo data: the inputs and prices are made up for this walkthrough. Market "
+    "evidence comes from cited sources and shows its own verification status."
 )
 
 Line = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
