@@ -28,7 +28,7 @@ run-frontend:
 	cd frontend && npm run dev
 
 check-frontend:
-	cd frontend && npm run lint && npm run typecheck
+	cd frontend && npm run lint && npm run typecheck && npm test
 
 # Run before submission, not part of `make check`: fails while the dataset still holds placeholders.
 check-dataset:
