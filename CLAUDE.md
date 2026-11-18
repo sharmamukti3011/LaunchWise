@@ -31,6 +31,7 @@ Python 3.11+, FastAPI, Pydantic v2, SQLite; React + Tailwind; Docker Compose on 
 - Reverse proxy: Caddy with automatic HTTPS; only ports 80 and 443 are public.
 - Domain: `launchwise.pro`; `www.launchwise.pro` redirects to the root domain.
 - Secrets live only in a server-side `.env` loaded via `env_file`. Never in images, the repo, or logs.
+- The contact form is gated by `CONTACT_ENABLED` (default false; 503 and no SMTP while off). uvicorn runs with `--no-access-log` on purpose: no personal data (visitor IPs) in logs. Don't remove it.
 
 ## Scope
 - In: home bakery only; feasibility engine, market comparison, What-If simulator, approval flow, template storefront, VPS deploy, contact form to Titan mailbox, guided demo mode.
