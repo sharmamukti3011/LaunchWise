@@ -5,7 +5,8 @@ both call `run_feasibility`, so the same inputs always give the same numbers.
 Money is `Decimal` in rupees, rounded half-up to paise. Floats are rejected.
 
 Every numeric output figure is wrapped in `Sourced` with a tag callers can display:
-- `user_provided`: an input echo, or arithmetic on user inputs alone.
+- `user_provided`: a value the user supplied, echoed back unchanged.
+- `derived`: computed by the engine from user inputs alone (margin, capacity, break-even units).
 - `assumption`: a value we chose (demand factors, working capital), not measured.
 - `estimate`: derived using an assumption, so it is only as good as that assumption.
 The `within_budget` verdict is a plain bool and is not tagged.
@@ -25,7 +26,7 @@ DEMAND_LOW = Decimal("0.25")
 DEMAND_MEDIUM = Decimal("0.50")
 DEMAND_HIGH = Decimal("1.00")
 
-Source = Literal["user_provided", "assumption", "estimate"]
+Source = Literal["user_provided", "derived", "assumption", "estimate"]
 
 T = TypeVar("T")
 
@@ -41,6 +42,10 @@ class Sourced(BaseModel, Generic[T]):  # noqa: UP046 - keep Python 3.11 compatib
 
 def _user(value: T) -> Sourced[T]:
     return Sourced[T](value=value, source="user_provided")
+
+
+def _derived(value: T) -> Sourced[T]:
+    return Sourced[T](value=value, source="derived")
 
 
 def _assumed(value: T) -> Sourced[T]:
@@ -196,7 +201,7 @@ def run_feasibility(
     working_capital = _paise(unit_cost * weekly_capacity) if include_working_capital else None
     total_required = startup_cost + (working_capital or ZERO_MONEY)
     # Totals that include working capital inherit its assumption tag.
-    total_tag = _assumed if include_working_capital else _user
+    total_tag = _assumed if include_working_capital else _derived
 
     return FeasibilityResult(
         inputs=InputEcho(
@@ -209,11 +214,11 @@ def run_feasibility(
         ),
         startup_cost=_user(startup_cost),
         unit_variable_cost=_user(unit_cost),
-        contribution_margin=_user(margin),
-        contribution_margin_pct=_user(margin_pct),
-        weekly_capacity=_user(weekly_capacity),
-        max_weekly_revenue=_user(max_weekly_revenue),
-        break_even_units=_user(units_needed),
+        contribution_margin=_derived(margin),
+        contribution_margin_pct=_derived(margin_pct),
+        weekly_capacity=_derived(weekly_capacity),
+        max_weekly_revenue=_derived(max_weekly_revenue),
+        break_even_units=_derived(units_needed),
         break_even=BreakEvenByDemand(
             low=_break_even_point(weekly_capacity, DEMAND_LOW, units_needed),
             medium=_break_even_point(weekly_capacity, DEMAND_MEDIUM, units_needed),

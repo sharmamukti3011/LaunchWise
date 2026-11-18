@@ -260,6 +260,17 @@ def _untagged_figures(model: BaseModel, path: str = "") -> list[str]:
     return untagged
 
 
+def _sources(model: BaseModel, path: str = "") -> dict[str, str]:
+    found: dict[str, str] = {}
+    for name in type(model).model_fields:
+        value: Any = getattr(model, name)
+        if isinstance(value, Sourced):
+            found[f"{path}{name}"] = value.source
+        elif isinstance(value, BaseModel):
+            found.update(_sources(value, f"{path}{name}."))
+    return found
+
+
 @pytest.mark.parametrize("working_capital", [False, True])
 def test_every_output_figure_carries_a_source(working_capital: bool) -> None:
     result = run_feasibility(_inputs(), _option(), include_working_capital=working_capital)
@@ -267,8 +278,8 @@ def test_every_output_figure_carries_a_source(working_capital: bool) -> None:
     assert _untagged_figures(result) == []
 
 
-def test_sources_are_limited_to_the_three_allowed_tags() -> None:
-    assert set(get_args(Source)) == {"user_provided", "assumption", "estimate"}
+def test_sources_are_limited_to_the_four_allowed_tags() -> None:
+    assert set(get_args(Source)) == {"user_provided", "derived", "assumption", "estimate"}
     with pytest.raises(ValidationError):
         Sourced[int](value=1, source="verified")
 
@@ -287,23 +298,61 @@ def test_inputs_are_echoed_as_user_provided() -> None:
     assert echo.fixed_startup_costs.source == "user_provided"
 
 
-def test_figures_from_user_inputs_alone_are_user_provided() -> None:
+def test_plain_echoes_of_user_inputs_stay_user_provided() -> None:
     result = run_feasibility(_inputs(), _option())
 
     for figure in (
         result.startup_cost,
         result.unit_variable_cost,
+        result.budget_check.budget,
+        result.budget_check.startup_cost,
+    ):
+        assert figure.source == "user_provided"
+
+
+def test_figures_the_engine_computes_from_user_inputs_alone_are_derived() -> None:
+    result = run_feasibility(_inputs(), _option())
+
+    for figure in (
         result.contribution_margin,
         result.contribution_margin_pct,
         result.weekly_capacity,
         result.max_weekly_revenue,
         result.break_even_units,
-        result.budget_check.budget,
+        result.budget_check.total_required,
         result.budget_check.headroom,
         result.budget_check.shortfall,
-        result.budget_check.total_required,
     ):
-        assert figure.source == "user_provided"
+        assert figure.source == "derived"
+
+
+def test_a_figure_with_no_value_is_still_derived_not_user_provided() -> None:
+    # No price, so no margin percentage; margin <= 0 means break-even is never reached.
+    result = run_feasibility(_inputs(), _option(price="0"))
+
+    assert result.contribution_margin_pct.value is None
+    assert result.contribution_margin_pct.source == "derived"
+    assert result.break_even_units.value is None
+    assert result.break_even_units.source == "derived"
+
+
+def test_only_echoed_inputs_are_user_provided() -> None:
+    """Guard: anything tagged user_provided must be one of the values the user typed in."""
+    for with_wc in (False, True):
+        result = run_feasibility(_inputs(), _option(), include_working_capital=with_wc)
+        tagged = {path for path, source in _sources(result).items() if source == "user_provided"}
+        assert tagged == {
+            "inputs.budget",
+            "inputs.units_per_day",
+            "inputs.days_per_week",
+            "inputs.price",
+            "inputs.variable_cost_per_unit",
+            "inputs.fixed_startup_costs",
+            "startup_cost",
+            "unit_variable_cost",
+            "budget_check.budget",
+            "budget_check.startup_cost",
+        }
 
 
 def test_demand_factors_are_tagged_assumptions() -> None:
