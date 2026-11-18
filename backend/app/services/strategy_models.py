@@ -144,7 +144,8 @@ class Caveat(BaseModel):
 class RankedStrategies(BaseModel):
     """Best first. `recommended_id` is None when no option is viable.
 
-    `caveats` describe the recommended option only; empty when nothing is recommended.
+    `caveats` describe the recommended option. When nothing is recommended they cover every
+    option instead (shared ones once, option-specific ones with the option named).
     """
 
     model_config = ConfigDict(frozen=True)

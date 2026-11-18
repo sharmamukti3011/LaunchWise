@@ -243,6 +243,46 @@ def _caveats(
     return caveats
 
 
+def _for_option(title: str, message: str) -> str:
+    """'Premium cakes: working capital reserve ...' (the message's first letter lower-cased)."""
+    return f"{title}: {message[:1].lower()}{message[1:]}"
+
+
+def _caveats_for_all(
+    profile: ConstraintProfile,
+    ordered: list[StrategyOption],
+    results: dict[str, FeasibilityResult],
+    linked: dict[str, Opportunity | None],
+) -> list[Caveat]:
+    """Caveats when nothing is recommended: every option's, so the owner still sees what the
+    "nothing is viable" verdict rests on. A caveat that is the same for every option (demand
+    factors, weekly hours) is said once. One that differs (working capital, time per item, gaps
+    in skills or equipment) is said per option with the option named. No message repeats."""
+    per_option = [(o, _caveats(profile, o, results[o.id], linked[o.id])) for o in ordered]
+    common = {c.message for c in per_option[0][1]}
+    for _, caveats in per_option[1:]:
+        common &= {c.message for c in caveats}
+    out: list[Caveat] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(caveat: Caveat) -> None:
+        key = (caveat.kind, caveat.message)
+        if key not in seen:
+            seen.add(key)
+            out.append(caveat)
+
+    for caveat in per_option[0][1]:
+        if caveat.message in common:
+            add(caveat)
+    for option, caveats in per_option:
+        for caveat in caveats:
+            if caveat.message not in common:
+                add(
+                    caveat.model_copy(update={"message": _for_option(option.title, caveat.message)})
+                )
+    return out
+
+
 def compare_strategies(
     profile: ConstraintProfile,
     options: list[StrategyOption],
@@ -266,7 +306,18 @@ def compare_strategies(
     scored.sort(key=lambda s: (not s.viable, -s.total, not s.is_original, s.option_id))
     best = scored[0]
     if not best.viable:
-        return RankedStrategies(ranked=scored, recommended_id=None, keep_original=False)
+        by_option = {o.id: o for o in options}
+        return RankedStrategies(
+            ranked=scored,
+            recommended_id=None,
+            keep_original=False,
+            caveats=_caveats_for_all(
+                profile,
+                [by_option[s.option_id] for s in scored],
+                results,
+                {o.id: by_id[o.opportunity_id] if o.opportunity_id else None for o in options},
+            ),
+        )
     chosen = next(o for o in options if o.id == best.option_id)
     linked = by_id[chosen.opportunity_id] if chosen.opportunity_id else None
     return RankedStrategies(

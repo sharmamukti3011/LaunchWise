@@ -180,7 +180,8 @@ def test_c_nothing_is_viable_so_nothing_is_recommended() -> None:
     result = run("c_no_viable_option")
     assert result.ranking.recommended_id is None
     assert result.ranking.keep_original is False
-    assert result.ranking.caveats == []
+    # Nothing is recommended, but the owner still sees what the verdict rests on.
+    assert result.ranking.caveats != []
     assert all(not s.viable for s in result.ranking.ranked)
 
 
@@ -210,6 +211,31 @@ def test_c_scores_by_dimension_and_reasons() -> None:
     assert total(result, "premium-wedding-cakes") == D("66.50")
     premium = next(s for s in result.ranking.ranked if s.option_id == "premium-wedding-cakes")
     assert premium.viability_issues == ["over budget"]
+
+
+def test_c_the_nothing_viable_caveats_cover_both_options_without_repeats() -> None:
+    messages = [c.message for c in run("c_no_viable_option").ranking.caveats]
+    assert len(messages) == len(set(messages))
+    # The same for every option, so said once and not tied to an option.
+    assert (
+        "Demand is assumed: we modelled selling 25%, 50% and 100% of your weekly capacity."
+        in messages
+    )
+    assert "Weekly hours available (12) is assumed, not provided by you" in messages
+    # Each option's working capital differs (520 x 6 = 3,120 and 400 x 6 = 2,400), so each is named.
+    assert any(
+        m.startswith("Everyday cakes (original idea): working capital reserve (₹3,120)")
+        for m in messages
+    )
+    assert any(
+        m.startswith("Premium wedding cakes: working capital reserve (₹2,400)") for m in messages
+    )
+    # Only the premium option's time per item is an assumption (the original's is the owner's).
+    assert any(m.startswith("Premium wedding cakes: time per item (90 minutes)") for m in messages)
+    assert not any("Everyday cakes (original idea): time per item" in m for m in messages)
+    # Its equipment gap is a caveat too, and so is the original's missing market evidence.
+    assert any("walk-in fridge" in m for m in messages)
+    assert any("no market evidence for your original idea" in m for m in messages)
 
 
 # ---- (d) Noida: feasibility only --------------------------------------------------------------

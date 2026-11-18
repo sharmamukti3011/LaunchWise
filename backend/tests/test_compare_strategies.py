@@ -412,10 +412,14 @@ def test_caveats_only_describe_the_recommended_option() -> None:
     assert not any("welding" in c.message for c in result.caveats)
 
 
-def test_caveats_empty_when_nothing_is_recommended() -> None:
-    result = run([option(fixed_startup_costs=D("9000"))])
+def over_budget_original() -> StrategyOption:
+    return option(fixed_startup_costs=D("9000"))  # 9,000 + working capital is over the 10,000
+
+
+def test_caveats_are_not_empty_when_nothing_is_recommended() -> None:
+    result = run([over_budget_original()])
     assert result.recommended_id is None
-    assert result.caveats == []
+    assert result.caveats != []
 
 
 def test_caveat_order_is_missing_then_assumptions_then_evidence() -> None:
@@ -460,8 +464,43 @@ def test_working_capital_value_follows_the_recommended_option() -> None:
     assert "₹3,000" not in working_capital.message  # the thin original's would be 3,000
 
 
-def test_no_engine_assumption_caveats_when_nothing_is_recommended() -> None:
-    assert engine_caveats(run([option(fixed_startup_costs=D("9000"))])) == []
+def test_engine_assumptions_are_listed_even_when_nothing_is_recommended() -> None:
+    result = run([over_budget_original()])
+    assert result.recommended_id is None
+    working_capital, demand = engine_caveats(result)
+    assert working_capital.items == ["working_capital"] and demand.items == ["demand_factors"]
+    assumed = [c for c in result.caveats if c.kind == "assumption"]
+    assert sorted(c.items[0] for c in assumed) == ["hours_per_week", "minutes_per_unit"]
+
+
+def test_with_several_options_nothing_viable_lists_each_options_own_assumptions() -> None:
+    stall = market_stall(fixed_startup_costs=D("9000"), required_equipment=["oven"])
+    result = run([over_budget_original(), stall])
+    assert result.recommended_id is None
+    messages = [c.message for c in result.caveats]
+    # Said once: the same for every option.
+    assert sum("Demand is assumed" in m for m in messages) == 1
+    assert sum(m.startswith("Weekly hours available") for m in messages) == 1
+    # Said per option, with the option named: they differ between options.
+    capital = [m for m in messages if "orking capital reserve" in m]
+    assert len(capital) == 2
+    assert any(m.startswith("Weekend market stall: working capital") for m in capital)
+    assert any(m.startswith("Home bakery: working capital") for m in capital)
+
+
+def test_caveats_from_all_options_never_repeat() -> None:
+    stall = market_stall(fixed_startup_costs=D("9000"), required_equipment=["oven"])
+    other = stall.model_copy(update={"id": "stall2", "title": "Second stall"})
+    result = run([over_budget_original(), stall, other])
+    keys = [(c.kind, c.message) for c in result.caveats]
+    assert len(keys) == len(set(keys))
+
+
+def test_a_recommendation_still_gets_caveats_for_the_recommended_option_only() -> None:
+    result = run([thin_original(), market_stall(required_equipment=["oven"])])
+    assert result.recommended_id == "stall"
+    assert not any(c.message.startswith(("Home bakery:", "Weekend market stall:"))
+                   for c in result.caveats)  # fmt: skip
 
 
 def test_no_market_evidence_caveat_for_recommended_unlinked_original() -> None:
@@ -491,9 +530,9 @@ def test_no_evidence_caveat_absent_when_an_alternative_is_recommended() -> None:
     assert "no_market_evidence" not in kinds(result)
 
 
-def test_no_evidence_caveat_absent_when_nothing_is_recommended() -> None:
-    result = run([option(fixed_startup_costs=D("9000"))])
-    assert "no_market_evidence" not in kinds(result)
+def test_the_original_ideas_missing_evidence_is_caveated_when_nothing_is_recommended() -> None:
+    result = run([over_budget_original()])
+    assert "no_market_evidence" in kinds(result)
 
 
 def test_verification_and_no_evidence_caveats_are_mutually_exclusive() -> None:
