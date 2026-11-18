@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 
 from app.services.approvals import LaunchPayload
+from app.services.orchestrator import ClaudeMessage
 
 
 class FakeClock:
@@ -61,3 +62,19 @@ class FakeMailSender:
         if self._fail_with is not None:
             raise self._fail_with
         self.sent.append(message)
+
+
+class FakeClaude:
+    """A scripted `ClaudeClient`: each call returns the next reply, or raises an Exception."""
+
+    def __init__(self, *replies: "str | Exception") -> None:
+        self._replies = list(replies)
+        self.calls: list[tuple[str, list[ClaudeMessage], int]] = []
+
+    def complete(self, *, system: str, messages: list[ClaudeMessage], max_tokens: int) -> str:
+        self.calls.append((system, list(messages), max_tokens))
+        assert self._replies, "FakeClaude was called more times than it has replies"
+        reply = self._replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply

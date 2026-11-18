@@ -43,3 +43,42 @@ def test_the_analyze_service_makes_no_claude_calls_and_touches_no_database_or_ne
     for name in ANALYZE_MODULES:
         for module in _imported_modules(services / name):
             assert module.split(".")[0] not in ANALYZE_FORBIDDEN, f"{name} imports {module}"
+
+
+APP_DIR = Path(__file__).resolve().parent.parent / "app"
+CLAUDE_MODULES = [
+    "orchestrator",
+    "claude_client",
+    "explanation_check",
+    "explanation_facts",
+    "explanation_template",
+]
+
+
+def test_only_the_adapter_imports_the_anthropic_sdk() -> None:
+    for path in APP_DIR.rglob("*.py"):
+        uses_sdk = any(m.split(".")[0] == "anthropic" for m in _imported_modules(path))
+        assert uses_sdk == (path.name == "claude_client.py"), path.name
+
+
+def test_the_orchestrator_has_no_network_or_database_imports() -> None:
+    forbidden = {"anthropic", "httpx", "httpx2", "requests", "sqlite3", "smtplib", "socket"}
+    for name in (*CLAUDE_MODULES[:1], *CLAUDE_MODULES[2:], "call_budget"):
+        for module in _imported_modules(APP_DIR / "services" / f"{name}.py"):
+            assert module.split(".")[0] not in forbidden, f"{name} imports {module}"
+
+
+def test_the_engine_and_analyze_modules_never_import_the_claude_modules() -> None:
+    files = list(ENGINE_DIR.rglob("*.py"))
+    files += [APP_DIR / "services" / name for name in ANALYZE_MODULES]
+    for path in files:
+        for module in _imported_modules(path):
+            assert module.rsplit(".", 1)[-1] not in CLAUDE_MODULES, f"{path.name}: {module}"
+
+
+def test_no_claude_model_name_is_hard_coded_in_the_app() -> None:
+    import re
+
+    pattern = re.compile(r"claude-(opus|sonnet|haiku|fable|mythos)", re.IGNORECASE)
+    for path in APP_DIR.rglob("*.py"):
+        assert not pattern.search(path.read_text()), f"{path.name} hard-codes a model name"

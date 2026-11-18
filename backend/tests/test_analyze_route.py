@@ -311,6 +311,7 @@ def test_the_storefront_path_prefix_is_reserved() -> None:
     assert sorted(registered) == [
         "/api/analyze",
         "/api/contact",
+        "/api/demo/explain/{scenario_id}",
         "/api/demo/run/{scenario_id}",
         "/api/demo/scenarios",
         "/api/health",

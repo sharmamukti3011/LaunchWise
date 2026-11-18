@@ -15,3 +15,10 @@ def clock() -> FakeClock:
 @pytest.fixture
 def svc(clock: FakeClock) -> ApprovalService:
     return make_service(clock)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_claude_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A real key in the developer's shell must never reach a test, or make it call the network."""
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_MODEL"):
+        monkeypatch.delenv(name, raising=False)

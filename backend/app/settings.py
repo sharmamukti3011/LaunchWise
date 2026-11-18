@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The value shipped in .env.example. Public, so refusing it is a guard, not a credential check.
 EXAMPLE_PLACEHOLDER = "changeme"
+# The Claude placeholders shipped in .env.example. A copied-but-unedited file must not look enabled.
+EXAMPLE_CLAUDE_KEY = "your-key-here"
+EXAMPLE_CLAUDE_MODEL = "your-model-name-here"
 
 
 class Settings(BaseSettings):
@@ -40,6 +43,18 @@ class Settings(BaseSettings):
     # Across all visitors, per hour. Raise it in .env when real traffic needs it; no code change.
     contact_rate_limit_global: int = Field(default=200, ge=1)
     contact_rate_window_global_seconds: int = Field(default=3600, ge=1)
+
+    @property
+    def claude_enabled(self) -> bool:
+        """True only with a real key and a model name; otherwise explanations use the template."""
+        key = self.anthropic_api_key.get_secret_value().strip() if self.anthropic_api_key else ""
+        model = (self.claude_model or "").strip()
+        return (
+            bool(key)
+            and bool(model)
+            and key != EXAMPLE_CLAUDE_KEY
+            and model != EXAMPLE_CLAUDE_MODEL
+        )
 
     @model_validator(mode="after")
     def _contact_needs_a_real_mailbox_in_production(self) -> Self:

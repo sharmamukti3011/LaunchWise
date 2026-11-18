@@ -46,6 +46,7 @@ def test_the_schema_can_still_be_generated_in_process_for_tests_and_tooling() ->
     assert sorted(app.openapi()["paths"]) == [
         "/api/analyze",
         "/api/contact",
+        "/api/demo/explain/{scenario_id}",
         "/api/demo/run/{scenario_id}",
         "/api/demo/scenarios",
         "/api/health",

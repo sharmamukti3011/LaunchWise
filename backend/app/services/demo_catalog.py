@@ -13,6 +13,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 
 from app.services.analyze_models import AnalyzeRequest, AnalyzeResponse, Slug
+from app.services.orchestrator import Explanation
 
 DEMO_DIR = Path(__file__).resolve().parents[1] / "data" / "demo_scenarios"
 MANIFEST_NAME = "manifest.json"
@@ -65,6 +66,15 @@ class DemoRunResponse(BaseModel):
     simulated: Literal[True] = True
     notice: str = SIMULATED_NOTICE
     analysis: AnalyzeResponse
+
+
+class DemoExplainResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    scenario_id: str
+    simulated: Literal[True] = True
+    notice: str = SIMULATED_NOTICE
+    explanation: Explanation
 
 
 class DemoCatalog:

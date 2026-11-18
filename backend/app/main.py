@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from fastapi import FastAPI
@@ -10,12 +11,15 @@ from app.logging_config import configure_logging
 from app.routes import analyze, contact, demo, health
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
+from app.services.call_budget import CallBudget
+from app.services.claude_client import claude_client_from_settings
 from app.services.clock import Clock, SystemClock
 from app.services.contact_service import build_contact_service
 from app.services.demo_catalog import load_demo_catalog
 from app.services.demo_service import DemoService
 from app.services.mail import MailSender, mail_sender_from_settings
 from app.services.market_data import MarketDataset, load_dataset
+from app.services.orchestrator import ClaudeClient, ExplainService
 from app.services.rate_limit import RateLimiter
 from app.settings import Settings, get_settings
 
@@ -28,6 +32,7 @@ def create_app(
     mail_sender: MailSender | None = None,
     clock: Clock | None = None,
     dataset: MarketDataset | None = None,
+    claude: ClaudeClient | None = None,
 ) -> FastAPI:
     """Collaborators are injected so tests never touch real SMTP, real time or the real dataset."""
     # Resolving settings and the dataset here makes the app fail loudly at startup on bad config.
@@ -76,7 +81,19 @@ def create_app(
     app.state.analyze_gateway = gateway
     # The demo reuses the analyze gateway, so it shares its rate limit and its outcome logging.
     # The catalog is validated here, so a bad scenario file stops the app at startup.
-    app.state.demo_service = DemoService(load_demo_catalog(), gateway)
+    # Claude only explains. With no key and model, or when its caps are spent, a template is used.
+    claude = claude or claude_client_from_settings(settings)
+    if claude is None and settings.anthropic_api_key is not None:
+        logging.getLogger("launchwise.explain").warning(
+            "Claude is not enabled (a real ANTHROPIC_API_KEY and CLAUDE_MODEL are both needed); "
+            "explanations will use the template"
+        )
+    budget = CallBudget(
+        per_key=settings.claude_max_calls_per_session, total=settings.claude_max_calls_global
+    )
+    app.state.demo_service = DemoService(
+        load_demo_catalog(), gateway, ExplainService(claude, budget)
+    )
 
     app.include_router(health.router, prefix="/api")
     app.include_router(contact.router, prefix="/api")
