@@ -70,7 +70,7 @@ def test_a_minimal_valid_request_builds_with_domain_compatible_models() -> None:
 
 
 def test_json_round_trip() -> None:
-    req = build(options=[option(), alternative(opportunity_id="TODO-VERIFY-PUNE-001")])
+    req = build(options=[option(), alternative(opportunity_id="PUNE-001")])
     assert AnalyzeRequest.model_validate_json(req.model_dump_json()) == req
 
 

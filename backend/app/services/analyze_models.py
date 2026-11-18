@@ -46,7 +46,7 @@ Title = Annotated[str, _text(80), _CLEAN]
 Place = Annotated[str, _text(80), _CLEAN]
 Category = Annotated[str, _text(60), _CLEAN]
 # Option ids are chosen by the caller: lowercase slugs. Opportunity ids come from the dataset,
-# which uses upper case (TODO-VERIFY-PUNE-001), so they get their own pattern.
+# which uses upper case (PUNE-001), so they get their own pattern.
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_-]{0,39}$")]
 OpportunityId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$")]
 BoundedMoney = Annotated[Money, Field(le=MAX_MONEY, decimal_places=2)]

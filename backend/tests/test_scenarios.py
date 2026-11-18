@@ -3,8 +3,9 @@
 Each expected score below can be worked out from the rules in `app/services/scoring.py`. The
 arithmetic is written next to the assertions so you can verify it with a pencil.
 Weights: margin 30, budget 20, capacity 20, skill/equipment 15, market signal 15.
-Every shipped dataset entry is a low-strength, unverified placeholder, so a linked option's
-market score is 30 - 15 = 15, and an original idea with no evidence gets a neutral 50.
+Every shipped dataset entry is still `unverified_sample`, so a linked option's market score is
+its signal points minus 15: low 30 - 15 = 15, medium 60 - 15 = 45. The links used here are PUNE-001
+(medium), PUNE-002 and PUNE-003 (both low). An original idea with no evidence gets a neutral 50.
 """
 
 import json
@@ -90,16 +91,17 @@ def test_a_scores_by_dimension() -> None:
     # Custom cakes: price 1400, cost 500 -> margin 900 = 64.29% -> capped at 100.
     #   budget: 4000 + 500*6 = 7000; headroom 3000 = 30% -> 80.
     #   capacity: 100 min * 6 = 10 h <= 12 h -> 100. skills/equipment present -> 100.
-    #   market: low signal 30, minus 15 for unverified -> 15.
-    #   total = (100*30 + 80*20 + 100*20 + 100*15 + 15*15) / 100 = 83.25
+    #   market: PUNE-001 is a medium signal, 60, minus 15 for unverified -> 45.
+    #   total = (100*30 + 80*20 + 100*20 + 100*15 + 45*15) / 100 = 8775 / 100 = 87.75
     assert scores(result, "custom-celebration-cakes") == {
-        "margin": 100, "budget": 80, "capacity": 100, "skill_equipment": 100, "market_signal": 15,
+        "margin": 100, "budget": 80, "capacity": 100, "skill_equipment": 100, "market_signal": 45,
     }  # fmt: skip
-    assert total(result, "custom-celebration-cakes") == D("83.25")
+    assert total(result, "custom-celebration-cakes") == D("87.75")
     # Small shop: margin 600/900 = 66.67% -> 100. budget: 150000 + 300*6 is far over 10000 -> 0.
     #   capacity 90 min * 6 = 9 h -> 100.
     #   equipment: 1 of 3 required items missing -> floor(2/3*100) = 66.
-    #   market 15. total = (100*30 + 0 + 100*20 + 66*15 + 15*15) / 100 = 62.15, but not viable.
+    #   market: PUNE-003 is a low signal, 30, minus 15 -> 15.
+    #   total = (100*30 + 0 + 100*20 + 66*15 + 15*15) / 100 = 62.15, but not viable.
     assert scores(result, "small-shop") == {
         "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 66, "market_signal": 15,
     }  # fmt: skip
@@ -142,7 +144,8 @@ def test_b_scores_by_dimension() -> None:
     #   capacity: 60 min * 6 = 6 h -> 100.
     #   equipment: needs baking + deck oven + proofing basket; owner lacks 2 of 3
     #   -> floor(1/3*100) = 33.
-    #   market 15. total = (100*30 + 100*20 + 100*20 + 33*15 + 15*15) / 100 = 77.20
+    #   market: PUNE-002 is a low signal, 30, minus 15 -> 15.
+    #   total = (100*30 + 100*20 + 100*20 + 33*15 + 15*15) / 100 = 77.20
     assert scores(result, "sourdough-subscription") == {
         "margin": 100, "budget": 100, "capacity": 100, "skill_equipment": 33, "market_signal": 15,
     }  # fmt: skip
@@ -194,11 +197,12 @@ def test_c_scores_by_dimension_and_reasons() -> None:
     assert original.viability_issues == ["no positive margin"]
     # Premium: margin 800/1200 = 66.67% -> 100. budget: 40000 + 400*6 is far over 5000 -> 0.
     #   capacity 90 min * 6 = 9 h -> 100. equipment: walk-in fridge missing, 1 of 2 -> 50.
-    #   market 15. total = (100*30 + 0 + 100*20 + 50*15 + 15*15) / 100 = 59.75; fails: over budget.
+    #   market: PUNE-001 is a medium signal, 60, minus 15 -> 45.
+    #   total = (100*30 + 0 + 100*20 + 50*15 + 45*15) / 100 = 6425 / 100 = 64.25; not viable.
     assert scores(result, "premium-wedding-cakes") == {
-        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 50, "market_signal": 15,
+        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 50, "market_signal": 45,
     }  # fmt: skip
-    assert total(result, "premium-wedding-cakes") == D("59.75")
+    assert total(result, "premium-wedding-cakes") == D("64.25")
     premium = next(s for s in result.ranking.ranked if s.option_id == "premium-wedding-cakes")
     assert premium.viability_issues == ["over budget"]
 

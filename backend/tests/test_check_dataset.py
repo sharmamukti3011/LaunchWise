@@ -83,12 +83,17 @@ def test_single_source_and_verified_entries_pass() -> None:
     assert find_problems(entries) == []
 
 
-def test_the_shipped_placeholder_dataset_fails_the_gate_on_purpose() -> None:
-    # It must fail until a human replaces every placeholder with a real, cited, verified entry.
+def test_the_shipped_dataset_fails_the_gate_until_a_human_verifies_every_entry() -> None:
     problems = find_problems(load_dataset().opportunities)
     assert len(problems) == len(load_dataset().opportunities)
-    text = "\n".join(problems)
-    assert ".invalid" in text and "TODO" in text and "unverified_sample" in text
+    assert all("unverified_sample" in p for p in problems)
+    assert any("CHECK" in p for p in problems)  # open questions in a label also block the gate
+
+
+@pytest.mark.parametrize("field", ["label", "evidence", "signal_summary"])
+def test_a_check_note_in_the_text_fails_the_gate(field: str) -> None:
+    entry = clean(**{field: "CHECK: confirm this date"})
+    assert "CHECK" in "".join(find_problems([entry]))
 
 
 def run_script(*args: str) -> subprocess.CompletedProcess[str]:

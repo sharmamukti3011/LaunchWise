@@ -49,7 +49,7 @@ def test_the_request_gives_claude_the_facts_and_the_rules_and_no_model_name() ->
     facts = json.loads(messages[0]["content"].split("FACTS:\n", 1)[1])
     assert facts["recommended"]["title"] == "Custom celebration cakes"
     assert facts["keep_original"] is False
-    assert any(e["id"] == "TODO-VERIFY-PUNE-001" and e["placeholder"] for e in facts["evidence"])
+    assert any(e["id"] == "PUNE-001" and e["placeholder"] for e in facts["evidence"])
     assert max_tokens <= 8000
     assert "$" not in messages[0]["content"] + system  # rupees everywhere
 
@@ -109,7 +109,7 @@ def test_the_good_explanation_passes() -> None:
 @pytest.mark.parametrize(
     "variant",
     [
-        "₹900", "₹900.00", "900", "64.29%", "₹10,000", "83.25", "100", "₹7,000.00", "₹3,000.00",
+        "₹900", "₹900.00", "900", "64.29%", "₹10,000", "87.75", "100", "₹7,000.00", "₹3,000.00",
     ],
 )  # fmt: skip
 def test_figures_in_any_spelling_of_a_response_number_are_allowed(variant: str) -> None:
@@ -135,7 +135,7 @@ def test_spelled_out_numbers_that_are_not_in_the_response_are_rejected(word: str
 
 
 def test_a_dataset_id_that_is_not_in_the_response_is_rejected() -> None:
-    text = GOOD.replace("TODO-VERIFY-PUNE-001", "TODO-VERIFY-PUNE-009")
+    text = GOOD.replace("PUNE-001", "PUNE-009")
     problem = check(text)
     assert problem is not None and "dataset ID" in problem
 

@@ -1,6 +1,6 @@
 """Pre-submission gate for the market dataset. Run with `make check-dataset`.
 
-Fails (exit 1) while any entry still has a `.invalid` source URL, a TODO marker, or the
+Fails (exit 1) while any entry still has a `.invalid` source URL, a TODO or CHECK: marker, or the
 `unverified_sample` status. These are the placeholders shipped with the code; a human must replace
 each one with a real, cited, verified entry. This is deliberately not part of `make check`, which
 must pass during development while the placeholders exist.
@@ -31,6 +31,12 @@ def _texts(entry: Opportunity) -> list[str]:
     ]
 
 
+def _has_marker(text: str) -> bool:
+    """TODO means a placeholder; "CHECK:" means a question the owner left open on purpose."""
+    folded = text.casefold()
+    return "todo" in folded or "check:" in folded
+
+
 def find_problems(opportunities: Sequence[Opportunity]) -> list[str]:
     """One line per entry that still has a placeholder marker, naming every reason."""
     problems = []
@@ -41,8 +47,8 @@ def find_problems(opportunities: Sequence[Opportunity]) -> list[str]:
             reasons.append("source URL is a .invalid placeholder")
         if entry.verification_status == "unverified_sample":
             reasons.append("status is unverified_sample")
-        if any("todo" in text.casefold() for text in _texts(entry)):
-            reasons.append("contains a TODO marker")
+        if any(_has_marker(text) for text in _texts(entry)):
+            reasons.append("contains a TODO or CHECK marker")
         if reasons:
             problems.append(f"{entry.id}: " + "; ".join(reasons))
     return problems

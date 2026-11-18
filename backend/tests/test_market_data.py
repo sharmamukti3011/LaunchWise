@@ -50,13 +50,23 @@ def test_the_shipped_dataset_lives_inside_the_backend_app_package() -> None:
     assert DATASET_PATH.relative_to(root).as_posix() == "backend/app/data/market_opportunities.json"
 
 
-def test_shipped_placeholders_are_clearly_marked_and_claim_nothing() -> None:
+def test_the_shipped_dataset_is_the_five_cited_pune_entries() -> None:
+    entries = load_dataset().opportunities
+    assert [o.id for o in entries] == [f"PUNE-00{n}" for n in range(1, 6)]
+    for entry in entries:
+        assert entry.source_url.scheme == "https", entry.id
+        assert not (entry.source_url.host or "").endswith(".invalid"), entry.id
+        assert entry.source_name.strip(), entry.id
+
+
+def test_no_shipped_entry_claims_verification_without_a_verifier() -> None:
+    # `verification_status` is set by a human after checking the source. Until then it must not
+    # say "verified", and a verified entry must name who checked it and when.
     for entry in load_dataset().opportunities:
-        if (entry.source_url.host or "").endswith(".invalid"):
-            assert entry.verification_status == "unverified_sample", entry.id
-            assert "TODO(verify)" in entry.label, entry.id
+        if entry.verification_status == "verified":
+            assert entry.verified_by and entry.verified_on, entry.id
+        else:
             assert entry.verified_by is None and entry.verified_on is None, entry.id
-            assert entry.signal_strength == "low", entry.id  # neutral, not a finding
 
 
 def test_the_shipped_dataset_covers_pune_bakeries_only() -> None:

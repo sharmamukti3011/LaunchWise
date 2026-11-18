@@ -55,7 +55,7 @@
       "required_equipment": [
         "oven"
       ],
-      "opportunity_id": "TODO-VERIFY-PUNE-001"
+      "opportunity_id": "PUNE-001"
     },
     {
       "id": "small-shop",
@@ -75,7 +75,7 @@
       "required_equipment": [
         "commercial oven"
       ],
-      "opportunity_id": "TODO-VERIFY-PUNE-003"
+      "opportunity_id": "PUNE-003"
     }
   ]
 }
