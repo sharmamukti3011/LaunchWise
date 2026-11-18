@@ -11,17 +11,25 @@ export function sourceLabel(source: Source): string {
   return SOURCE_LABELS[source];
 }
 
-const RUPEES = new Intl.NumberFormat("en-IN", {
+const RUPEES_WHOLE = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const RUPEES_PAISE = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
-/** Display only: the backend does all the arithmetic. */
+/** Display only: the backend does all the arithmetic. Paise show only when not a whole rupee. */
 export function formatRupees(amount: string): string {
   const n = Number(amount);
-  return amount.trim() !== "" && Number.isFinite(n) ? RUPEES.format(n) : "—";
+  if (amount.trim() === "" || !Number.isFinite(n)) return "—";
+  const paise = amount.split(".")[1] ?? "";
+  return /^0*$/.test(paise) ? RUPEES_WHOLE.format(n) : RUPEES_PAISE.format(n);
 }
 
 export function statusOf(score: Pick<OptionScore, "option_id" | "viable" | "viability_issues">, recommendedId: string | null): string {

@@ -443,7 +443,7 @@ def test_engine_assumptions_are_listed_with_their_values() -> None:
     result = run([option()])
     working_capital, demand = engine_caveats(result)
     assert working_capital.items == ["working_capital"]
-    assert "₹2,100.00" in working_capital.message
+    assert "₹2,100" in working_capital.message
     assert "the first week's running costs at full capacity" in working_capital.message
     assert demand.items == ["demand_factors"]
     for expected in ("25%", "50%", "100%"):
@@ -456,8 +456,8 @@ def test_working_capital_value_follows_the_recommended_option() -> None:
     result = run([thin_original(), market_stall()])
     assert result.recommended_id == "stall"
     working_capital = engine_caveats(result)[0]
-    assert "₹2,400.00" in working_capital.message
-    assert "₹3,000.00" not in working_capital.message  # the thin original's would be 3,000
+    assert "₹2,400" in working_capital.message
+    assert "₹3,000" not in working_capital.message  # the thin original's would be 3,000
 
 
 def test_no_engine_assumption_caveats_when_nothing_is_recommended() -> None:

@@ -61,7 +61,7 @@ def test_the_facts_carry_the_engines_figures_with_their_source_tags() -> None:
     explain(service(fake))
     facts = json.loads(fake.calls[0][1][0]["content"].split("FACTS:\n", 1)[1])
     figures = {f["label"]: f for f in facts["recommended"]["figures"]}
-    assert figures["Margin per unit"]["value"] == "₹900.00"
+    assert figures["Margin per unit"]["value"] == "₹900"
     assert figures["Margin per unit"]["source"] == "derived"
 
 

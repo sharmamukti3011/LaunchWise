@@ -43,7 +43,7 @@ def test_margin_reason_shows_pct_and_weekly_contribution_at_medium_demand() -> N
     reason = margin_fit(feasibility()).reason
     assert "56.25%" in reason
     # 450 per unit x 3 units a week (50% of 6 capacity) = 1,350.
-    assert "₹1,350.00" in reason
+    assert "₹1,350" in reason
     assert "medium demand" in reason
     assert "assum" in reason  # the 50% demand factor is labelled an assumption
 
@@ -60,7 +60,7 @@ def test_budget_fit_within_budget_scales_with_headroom() -> None:
     # 6,000 startup + 2,100 working capital (350 x 6) = 8,100; headroom 1,900 = 19% -> 50 + 19.
     score = budget_fit(feasibility())
     assert score.score == 69
-    assert "₹8,100.00" in score.reason and "₹10,000.00" in score.reason
+    assert "₹8,100" in score.reason and "₹10,000" in score.reason
     assert "working capital" in score.reason
 
 
@@ -76,7 +76,7 @@ def test_budget_fit_is_zero_when_working_capital_tips_over_budget() -> None:
     # Startup alone (8,000) fits, but 8,000 + 2,100 > 10,000.
     score = budget_fit(feasibility(option(fixed_startup_costs=D("8000"))))
     assert score.score == 0
-    assert "₹100.00" in score.reason  # shortfall
+    assert "₹100" in score.reason  # shortfall
     assert "over budget" in score.reason
 
 

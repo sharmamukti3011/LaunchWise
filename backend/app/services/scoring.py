@@ -6,7 +6,7 @@ and never recompute its numbers.
 """
 
 from datetime import date
-from decimal import ROUND_FLOOR, Decimal
+from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
 from app.engine.feasibility import HUNDRED, PAISE, FeasibilityResult, Source
 from app.services.strategy_models import (
@@ -31,8 +31,27 @@ SIGNAL_POINTS: dict[SignalStrength, int] = {"low": 30, "medium": 60, "high": 90}
 UNVERIFIED_DEDUCTION = 15
 
 
+def _group_indian(digits: str) -> str:
+    """12345678 -> 1,23,45,678: the grouping people in India read, and the screen uses."""
+    if len(digits) <= 3:
+        return digits
+    head, tail = digits[:-3], digits[-3:]
+    groups: list[str] = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return ",".join([*groups, tail])
+
+
 def rupees(value: Decimal) -> str:
-    return f"₹{value.quantize(PAISE):,.2f}"
+    """₹10,000 for a whole-rupee amount; paise only when the value is not whole (₹900.50)."""
+    amount = value.quantize(PAISE, rounding=ROUND_HALF_UP)
+    sign = "-" if amount < 0 else ""
+    whole, _, paise = f"{abs(amount):f}".partition(".")
+    shown = _group_indian(whole)
+    return f"{sign}₹{shown}" if paise == "00" else f"{sign}₹{shown}.{paise}"
 
 
 def _floor_int(value: Decimal) -> int:

@@ -13,9 +13,19 @@ describe("sourceLabel", () => {
 });
 
 describe("formatRupees", () => {
-  it("formats paise strings in the Indian grouping with the rupee sign", () => {
-    expect(formatRupees("10000.00")).toBe("₹10,000.00");
-    expect(formatRupees("125000")).toBe("₹1,25,000.00");
+  it("shows whole rupees without .00, in the Indian grouping", () => {
+    expect(formatRupees("10000.00")).toBe("₹10,000");
+    expect(formatRupees("125000")).toBe("₹1,25,000");
+    expect(formatRupees("0.00")).toBe("₹0");
+    expect(formatRupees("1234567")).toBe("₹12,34,567");
+  });
+  it("keeps paise only when the value is not whole", () => {
+    expect(formatRupees("899.50")).toBe("₹899.50");
+    expect(formatRupees("0.5")).toBe("₹0.50");
+    expect(formatRupees("1000.05")).toBe("₹1,000.05");
+  });
+  it("never uses a dollar sign", () => {
+    expect(formatRupees("500")).not.toContain("$");
   });
   it("never shows NaN for odd input", () => {
     expect(formatRupees("oops")).toBe("—");

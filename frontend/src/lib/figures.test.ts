@@ -28,8 +28,8 @@ describe("keyFigures", () => {
   it("lists each figure with the source tag the engine gave it", () => {
     const rows = keyFigures(feasibility());
     const byLabel = Object.fromEntries(rows.map((r) => [r.label, r]));
-    expect(byLabel["Startup cost"]).toMatchObject({ value: "₹4,000.00", source: "user_provided" });
-    expect(byLabel["Margin per unit"]).toMatchObject({ value: "₹900.00", source: "derived" });
+    expect(byLabel["Startup cost"]).toMatchObject({ value: "₹4,000", source: "user_provided" });
+    expect(byLabel["Margin per unit"]).toMatchObject({ value: "₹900", source: "derived" });
     expect(byLabel["Margin"]).toMatchObject({ value: "64.29%", source: "derived" });
     expect(byLabel["Weekly capacity"]).toMatchObject({ value: "6 units", source: "derived" });
     expect(byLabel["Break-even sales"]).toMatchObject({ value: "5 units", source: "derived" });
@@ -57,6 +57,6 @@ describe("keyFigures", () => {
     const labels = rows.map((r) => r.label);
     expect(labels).not.toContain("Working capital reserve");
     expect(rows.find((r) => r.label === "Break-even sales")?.value).toBe("not reached");
-    expect(rows.find((r) => r.label === "Short of budget by")?.value).toBe("₹500.00");
+    expect(rows.find((r) => r.label === "Short of budget by")?.value).toBe("₹500");
   });
 });
