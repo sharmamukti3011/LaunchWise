@@ -60,7 +60,7 @@ def test_against_evidence_gives_a_market_signal_of_zero_however_strong_and_verif
     strong = opportunity(signal_strength="high", direction="against")
     score = market_signal_fit(linked(), strong, TODAY)
     assert score.score == 0
-    assert "against" in score.reason and "TEST-FAKE-001" in score.reason
+    assert "against" in score.reason and "test_fixture" in score.reason
 
 
 def test_against_evidence_scores_zero_even_when_unverified_or_evergreen() -> None:
@@ -111,12 +111,12 @@ def test_the_response_evidence_carries_the_direction() -> None:
 
 def test_the_facts_tell_claude_which_evidence_argues_against_which_option() -> None:
     facts = build_facts(analysis_for("pune-pivot"))
-    assert {e["id"]: e["direction"] for e in facts["evidence"]} == {
-        "PUNE-001": "supports",
-        "PUNE-003": "against",
+    assert {e["source"]: e["direction"] for e in facts["evidence"]} == {
+        "YourStory (HerStory)": "supports",
+        "Housing.com": "against",
     }
     shop = next(r for r in facts["ranked"] if r["title"].startswith("Open a small shop"))
-    assert shop["market_evidence"] == {"id": "PUNE-003", "direction": "against"}
+    assert shop["market_evidence"] == {"source": "Housing.com", "direction": "against"}
 
 
 def test_the_system_prompt_says_against_evidence_is_never_support() -> None:
@@ -139,14 +139,17 @@ def flip(analysis: Any, evidence_id: str, direction: str = "against") -> Any:
 def test_the_template_says_so_when_the_recommended_option_has_against_evidence() -> None:
     analysis = flip(analysis_for("pune-pivot"), "PUNE-001")
     text = templated_summary(analysis)
-    assert "PUNE-001" in text and "argues against" in text
+    assert "evidence from YourStory (HerStory) argues against" in text and "PUNE-" not in text
     assert validate_summary(text, analysis) is None
 
 
 def test_the_template_notes_when_the_next_best_option_has_against_evidence() -> None:
     analysis = flip(analysis_for("pune-keep-original"), "PUNE-004")
     text = templated_summary(analysis)
-    assert "Sourdough bread subscription" in text and "argues against it" in text
+    assert (
+        "Sourdough bread subscription" in text
+        and "evidence from YourStory argues against it" in text
+    )
     assert validate_summary(text, analysis) is None
 
 
@@ -173,18 +176,18 @@ def test_the_check_rejects_calling_against_evidence_support() -> None:
     analysis = analysis_for("pune-pivot")
     text = (
         "The engine recommends Custom celebration cakes, which scored 90.00 out of 100. "
-        "The shop idea is backed by PUNE-003, which supports a shopfront. "
+        "The shop idea is backed by evidence from Housing.com, which supports a shopfront. "
         "Treat this as a guide, not a promise of profit."
     )
     problem = validate_summary(text, analysis)
-    assert problem is not None and "PUNE-003" in problem and "against" in problem
+    assert problem is not None and "Housing.com" in problem and "against" in problem
 
 
 def test_the_check_accepts_describing_against_evidence_correctly() -> None:
     analysis = analysis_for("pune-pivot")
     text = (
         "The engine recommends Custom celebration cakes, which scored 90.00 out of 100. "
-        "A shopfront looks unrealistic because PUNE-003 argues against it. "
+        "A shopfront looks unrealistic because evidence from Housing.com argues against it. "
         "Treat this as a guide, not a promise of profit."
     )
     assert validate_summary(text, analysis) is None

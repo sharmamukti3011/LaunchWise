@@ -225,7 +225,9 @@ def _caveats(
         caveats.append(
             Caveat(
                 kind="evidence_against",
-                message=f"Market evidence {opportunity.id} argues against this option.",
+                message=(
+                    f"Market evidence from {opportunity.source_name} argues against this option."
+                ),
                 items=[opportunity.id],
             )
         )
@@ -235,7 +237,8 @@ def _caveats(
             Caveat(
                 kind="verification",
                 message=(
-                    f"Market evidence {opportunity.id} {how}, so treat its signal with caution."
+                    f"Market evidence from {opportunity.source_name} {how}, "
+                    "so treat its signal with caution."
                 ),
                 items=[opportunity.id],
             )

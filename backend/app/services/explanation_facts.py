@@ -57,7 +57,7 @@ def _ranked_entry(score: OptionScore, evidence: Opportunity | None) -> dict[str,
     return {
         "market_evidence": None
         if evidence is None
-        else {"id": evidence.id, "direction": evidence.direction},
+        else {"source": evidence.source_name, "direction": evidence.direction},
         "title": score.title,
         "is_original": score.is_original,
         "total": str(score.total),
@@ -93,7 +93,8 @@ def build_facts(analysis: AnalyzeResponse) -> dict[str, Any]:
         "caveats": [c.message for c in ranking.caveats],
         "evidence": [
             {
-                "id": e.id,
+                # The source name, not the dataset ID: that is how Claude must refer to it.
+                "source": e.source_name,
                 "title": e.title,
                 "status": e.verification_status,
                 "signal": e.signal_strength,

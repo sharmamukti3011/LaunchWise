@@ -194,16 +194,22 @@ def market_signal_fit(
         return DimensionScore(
             dimension="market_signal",
             score=0,
-            reason=f"{opportunity.id}: evidence against this option, so no market support",
+            reason=(
+                f"evidence from {opportunity.source_name} argues against this option, "
+                "so no market support"
+            ),
         )
     if opportunity.has_passed(today):
         return DimensionScore(
             dimension="market_signal",
             score=0,
-            reason=f"event passed: {opportunity.id} was on {opportunity.event_date}",
+            reason=(
+                f"event passed: evidence from {opportunity.source_name} "
+                f"was on {opportunity.event_date}"
+            ),
         )
     score = SIGNAL_POINTS[opportunity.signal_strength]
-    notes = [f"{opportunity.id}: {opportunity.signal_strength} signal"]
+    notes = [f"evidence from {opportunity.source_name}: {opportunity.signal_strength} signal"]
     notes.append("evergreen" if opportunity.is_evergreen else f"event on {opportunity.event_date}")
     notes.append(opportunity.verification_status.replace("_", " "))
     if opportunity.verification_status != "verified":

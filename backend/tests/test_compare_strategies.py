@@ -374,10 +374,13 @@ def test_caveat_for_verification_below_verified(status: str) -> None:
     result = run([thin_original(), market_stall(required_equipment=["oven"])], [opp])
     assert result.recommended_id == "stall"
     (caveat,) = [c for c in result.caveats if c.kind == "verification"]
-    assert OPP_ID in caveat.message
+    assert (
+        "test_fixture" in caveat.message and OPP_ID not in caveat.message
+    )  # the source, not the ID
     expected = {"single_source": "single source", "unverified_sample": "not been checked yet"}
     assert expected[status] in caveat.message
-    assert "_" not in caveat.message  # the status code is not shown
+    assert "single_source" not in caveat.message  # the status code is not shown
+    assert "unverified_sample" not in caveat.message
     assert caveat.items == [OPP_ID]
 
 
@@ -386,7 +389,8 @@ def test_the_recommended_option_gets_a_caveat_when_its_evidence_argues_against_i
     result = run([thin_original(), market_stall(required_equipment=["oven"])], [against])
     assert result.recommended_id == "stall"
     (caveat,) = [c for c in result.caveats if c.kind == "evidence_against"]
-    assert OPP_ID in caveat.message and "against" in caveat.message
+    assert "test_fixture" in caveat.message and "against" in caveat.message
+    assert OPP_ID not in caveat.message
     assert caveat.items == [OPP_ID]
 
 

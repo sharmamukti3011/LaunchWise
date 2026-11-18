@@ -192,7 +192,7 @@ def test_market_signal_follows_signal_strength_when_verified(strength: str, expe
     opt = option(id="alt", is_original=False, opportunity_id="TEST-FAKE-001")
     score = market_signal_fit(opt, opportunity(signal_strength=strength), TODAY)
     assert score.score == expected
-    assert "TEST-FAKE-001" in score.reason and strength in score.reason
+    assert "test_fixture" in score.reason and strength in score.reason
 
 
 @pytest.mark.parametrize("status", ["single_source", "unverified_sample"])

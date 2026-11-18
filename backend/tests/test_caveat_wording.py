@@ -101,13 +101,15 @@ def test_the_original_idea_with_no_evidence_has_a_plain_caveat() -> None:
 def test_weak_verification_is_explained_in_plain_words(status: str, words: str) -> None:
     weak = opportunity(verification_status=status, verified_by=None, verified_on=None)
     [message] = messages(run(opp=weak), "verification")
-    assert message == f"Market evidence TEST-FAKE-001 {words}, so treat its signal with caution."
+    assert (
+        message == f"Market evidence from test_fixture {words}, so treat its signal with caution."
+    )
 
 
 def test_against_evidence_caveat_is_plain() -> None:
     against = opportunity(direction="against")
     assert messages(run(opp=against), "evidence_against") == [
-        "Market evidence TEST-FAKE-001 argues against this option."
+        "Market evidence from test_fixture argues against this option."
     ]
 
 

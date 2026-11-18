@@ -24,6 +24,14 @@ _SUPPORT_WORDS = re.compile(
     r"\b(support|supports|supported|supporting|backs|backed|favou?rs|favou?red|favou?rable)\b",
     re.IGNORECASE,
 )
+# "evidence from X", "data by X", "according to X": X is a source being named. X is a run of
+# capitalised words (or a bracketed one), so "evidence from your numbers" names nothing.
+_NAME_WORD = r"(?:[A-Z][\w.&'’-]*|\([A-Za-z][\w .&'’-]*\))"
+_SOURCE_LEAD = re.compile(
+    r"(?i:\b(?:(?:evidence|data|source|sources|report|reports|reporting|article|articles|survey"
+    r"|listing|study|figures|coverage)\s+(?:from|by|in|on|at)|according\s+to|reported\s+by))"
+    rf"\s+(?P<name>{_NAME_WORD}(?:\s+{_NAME_WORD})*)"
+)
 _MARKUP = ("<", ">", "```", "](", "**")
 _PROMISES = (
     "guarantee", "risk-free", "risk free", "will make money", "you will make", "certain to",
@@ -100,6 +108,12 @@ def allowed_numbers(analysis: AnalyzeResponse) -> set[Decimal]:
     return allowed
 
 
+def _is_known_source(named: str, sources: set[str]) -> bool:
+    """The exact source name, or its leading whole words (YourStory for YourStory (HerStory))."""
+    lowered = named.lower()
+    return any(s.lower() == lowered or s.lower().startswith(lowered + " ") for s in sources)
+
+
 def _sentences(text: str) -> list[str]:
     return [s for s in _SENTENCE_END.split(text.strip()) if s.strip()]
 
@@ -120,17 +134,27 @@ def validate_summary(summary: str, analysis: AnalyzeResponse) -> str | None:
     for match in _WORD_RE.finditer(summary):
         if _WORDS[match.group(1).lower()] not in allowed:
             return f"it used the number word '{match.group(1)}', which is not in the facts"
-    known_ids = {e.id for e in analysis.evidence}
     for dataset_id in _DATASET_ID.findall(summary):
-        if dataset_id not in known_ids:
-            return f"it cited the dataset ID {dataset_id}, which is not in the facts"
-    against_ids = {e.id for e in analysis.evidence if e.direction == "against"}
+        return (
+            f"it used the dataset ID {dataset_id}; name the source instead, "
+            "for example: market evidence from <source name>"
+        )
+    sources = {e.source_name for e in analysis.evidence}
+    for match in _SOURCE_LEAD.finditer(summary):
+        named = match.group("name").rstrip(".,;:")
+        if not _is_known_source(named, sources):
+            return f"it named the source {named}, which is not in the facts"
+    # A source that only ever argues against its option must not be described as support.
+    supporting = {e.source_name for e in analysis.evidence if e.direction == "supports"}
+    against_only = {
+        e.source_name for e in analysis.evidence if e.direction == "against"
+    } - supporting
     for sentence in _sentences(summary):
-        for against_id in against_ids & set(_DATASET_ID.findall(sentence)):
-            if _SUPPORT_WORDS.search(sentence):
+        for name in against_only:
+            if name.lower() in sentence.lower() and _SUPPORT_WORDS.search(sentence):
                 return (
-                    f"it described {against_id} as support, but that evidence argues against "
-                    "the option it is linked to"
+                    f"it described the evidence from {name} as support, but that evidence "
+                    "argues against the option it is linked to"
                 )
     recommended = recommended_option(analysis)
     rec_evidence = linked_evidence(analysis, analysis.ranking.recommended_id)

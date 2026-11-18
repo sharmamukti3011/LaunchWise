@@ -70,15 +70,15 @@ def templated_summary(analysis: AnalyzeResponse) -> str:
     against = linked_evidence(analysis, rec.option_id)
     if against is not None and against.direction == "against":
         sentences.append(
-            f"Market evidence {against.id} argues against this option, so the recommendation "
-            "rests on your numbers alone."
+            f"Market evidence from {against.source_name} argues against this option, so the "
+            "recommendation rests on your numbers alone."
         )
     other = next((s for s in ranking.ranked if s.option_id != rec.option_id), None)
     if other is not None:
         label = "Your original idea" if other.is_original else "The next best option"
         other_evidence = linked_evidence(analysis, other.option_id)
         tail = (
-            ", and market evidence argues against it"
+            f", and market evidence from {other_evidence.source_name} argues against it"
             if other_evidence is not None and other_evidence.direction == "against"
             else ""
         )

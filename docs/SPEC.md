@@ -11,7 +11,7 @@
 - `deploy_storefront(config_id)` -> refuses without a matching approval
 - `verify_deployment(url)` -> HTTPS 200 plus content check
 
-Behavior: the original idea is always an option; the agent can recommend keeping it and can reject an opportunity with an explanation; Claude cites dataset IDs; every figure is tagged verified / user-provided / assumption / estimate; never promise profit; stream every tool call to the timeline.
+Behavior: the original idea is always an option; the agent can recommend keeping it and can reject an opportunity with an explanation; Claude names evidence by its source name (for example "market evidence from YourStory"), never by dataset ID, and the post-check rejects any source that is not in the response; every figure is tagged verified / user-provided / assumption / estimate; never promise profit; stream every tool call to the timeline.
 
 ## Feasibility engine
 - Pure functions, no network/DB/LLM. The What-If simulator calls the same functions.

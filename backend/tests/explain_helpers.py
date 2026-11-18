@@ -26,6 +26,6 @@ GOOD = (
     "The engine recommends Custom celebration cakes, which scored 90.00 out of 100. "
     "Each cake leaves a margin of ₹900, or 64.29% of the price, and the up-front cost fits your "
     "budget of ₹10,000. "
-    "Treat it as a guide: the market entry PUNE-001 is a verified source, "
+    "Treat it as a guide: the market evidence from YourStory (HerStory) is verified, "
     "and nothing here is a promise of profit."
 )

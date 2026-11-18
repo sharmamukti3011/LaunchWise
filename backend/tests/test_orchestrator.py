@@ -50,7 +50,7 @@ def test_the_request_gives_claude_the_facts_and_the_rules_and_no_model_name() ->
     facts = json.loads(messages[0]["content"].split("FACTS:\n", 1)[1])
     assert facts["recommended"]["title"] == "Custom celebration cakes"
     assert facts["keep_original"] is False
-    pune = next(e for e in facts["evidence"] if e["id"] == "PUNE-001")
+    pune = next(e for e in facts["evidence"] if e["source"] == "YourStory (HerStory)")
     assert pune["status"] == "verified" and pune["placeholder"] is False
     assert max_tokens <= 8000
     assert "$" not in messages[0]["content"] + system  # rupees everywhere
@@ -136,10 +136,10 @@ def test_spelled_out_numbers_that_are_not_in_the_response_are_rejected(word: str
     assert problem is not None and "not in the facts" in problem
 
 
-def test_a_dataset_id_that_is_not_in_the_response_is_rejected() -> None:
-    text = GOOD.replace("PUNE-001", "PUNE-009")
+def test_a_source_that_is_not_in_the_response_is_rejected() -> None:
+    text = GOOD.replace("YourStory (HerStory)", "Swiggy")
     problem = check(text)
-    assert problem is not None and "dataset ID" in problem
+    assert problem is not None and "Swiggy" in problem and "not in the facts" in problem
 
 
 def test_an_id_digit_is_not_mistaken_for_a_free_standing_number() -> None:
