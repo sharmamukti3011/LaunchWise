@@ -210,7 +210,15 @@ def _caveats(
                 items=[],
             )
         )
-    elif opportunity.verification_status != "verified":
+    if opportunity is not None and opportunity.direction == "against":
+        caveats.append(
+            Caveat(
+                kind="evidence_against",
+                message=f"Market evidence {opportunity.id} argues against this option.",
+                items=[opportunity.id],
+            )
+        )
+    if opportunity is not None and opportunity.verification_status != "verified":
         status = opportunity.verification_status.replace("_", " ")
         caveats.append(
             Caveat(

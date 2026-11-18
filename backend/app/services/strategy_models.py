@@ -16,6 +16,8 @@ HOURS_IN_WEEK = 168
 
 VerificationStatus = Literal["verified", "single_source", "unverified_sample"]
 SignalStrength = Literal["low", "medium", "high"]
+# Whether an entry supports the option it is linked to, or argues against it.
+EvidenceDirection = Literal["supports", "against"]
 
 
 class ConstraintProfile(BaseModel):
@@ -69,6 +71,7 @@ class Opportunity(BaseModel):
     verified_by: str | None = None
     verified_on: date | None = None
     signal_strength: SignalStrength
+    direction: EvidenceDirection = "supports"
     required_skills: list[str]
     required_equipment: list[str]
     lead_time_days: Annotated[int, Field(ge=0)]
@@ -123,6 +126,7 @@ CaveatKind = Literal[
     "assumption",
     "engine_assumption",
     "verification",
+    "evidence_against",
     "no_market_evidence",
 ]
 

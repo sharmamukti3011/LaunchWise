@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Opportunity } from "../api/demo";
-import { EVIDENCE_LABELS, evidenceKind, safeHttpUrl } from "./evidence";
+import { AGAINST_BADGE, EVIDENCE_LABELS, evidenceKind, isAgainst, safeHttpUrl } from "./evidence";
 
-const entry: Pick<Opportunity, "id" | "verification_status" | "label"> = {
+const entry: Pick<Opportunity, "id" | "verification_status" | "label" | "direction"> = {
   id: "X-1",
   verification_status: "verified",
   label: "ok",
+  direction: "supports",
 };
 
 describe("evidenceKind", () => {
@@ -44,5 +45,13 @@ describe("safeHttpUrl", () => {
   });
   it("never links the reserved .invalid placeholder host", () => {
     expect(safeHttpUrl("https://example.invalid/todo-verify-001")).toBeNull();
+  });
+});
+
+describe("isAgainst", () => {
+  it("is true only for evidence that argues against its option", () => {
+    expect(isAgainst({ direction: "against" })).toBe(true);
+    expect(isAgainst({ direction: "supports" })).toBe(false);
+    expect(AGAINST_BADGE).toBe("Evidence against this option");
   });
 });

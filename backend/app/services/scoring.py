@@ -170,6 +170,13 @@ def market_signal_fit(
         return DimensionScore(
             dimension="market_signal", score=0, reason="no linked market opportunity"
         )
+    if opportunity.direction == "against":
+        # Evidence against an option gives it no market support, however strong or verified.
+        return DimensionScore(
+            dimension="market_signal",
+            score=0,
+            reason=f"{opportunity.id}: evidence against this option, so no market support",
+        )
     if opportunity.has_passed(today):
         return DimensionScore(
             dimension="market_signal",

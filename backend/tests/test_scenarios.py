@@ -5,8 +5,9 @@ arithmetic is written next to the assertions so you can verify it with a pencil.
 Weights: margin 30, budget 20, capacity 20, skill/equipment 15, market signal 15.
 Every shipped dataset entry is `verified`, so a linked option's market score is its signal
 points with no deduction (the 15-point deduction applies only to entries that are not verified):
-low 30, medium 60. The links used here are PUNE-001 (medium), PUNE-003 (low) and PUNE-004
-(medium). An original idea with no evidence gets a neutral 50.
+low 30, medium 60. An entry whose direction is "against" scores 0 whatever its strength. The links
+used here are PUNE-001 (medium, supports), PUNE-003 (against) and PUNE-004 (medium, supports).
+An original idea with no evidence gets a neutral 50.
 """
 
 import json
@@ -101,12 +102,12 @@ def test_a_scores_by_dimension() -> None:
     # Small shop: margin 600/900 = 66.67% -> 100. budget: 150000 + 300*6 is far over 10000 -> 0.
     #   capacity 90 min * 6 = 9 h -> 100.
     #   equipment: 1 of 3 required items missing -> floor(2/3*100) = 66.
-    #   market: PUNE-003 is a verified low signal -> 30, no deduction.
-    #   total = (100*30 + 0 + 100*20 + 66*15 + 30*15) / 100 = 6440 / 100 = 64.40, but not viable.
+    #   market: PUNE-003 is evidence AGAINST the shop (rent far above the budget) -> 0.
+    #   total = (100*30 + 0 + 100*20 + 66*15 + 0*15) / 100 = 5990 / 100 = 59.90, and not viable.
     assert scores(result, "small-shop") == {
-        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 66, "market_signal": 30,
+        "margin": 100, "budget": 0, "capacity": 100, "skill_equipment": 66, "market_signal": 0,
     }  # fmt: skip
-    assert total(result, "small-shop") == D("64.40")
+    assert total(result, "small-shop") == D("59.90")
     shop = next(s for s in result.ranking.ranked if s.option_id == "small-shop")
     assert not shop.viable and "over budget" in shop.viability_issues
 

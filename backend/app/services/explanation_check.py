@@ -11,7 +11,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from app.services.analyze_models import AnalyzeResponse
-from app.services.explanation_facts import recommended_option
+from app.services.explanation_facts import linked_evidence, recommended_option
 
 MIN_SENTENCES = 3
 MAX_SENTENCES = 5
@@ -20,6 +20,10 @@ SCORE_SCALE = Decimal(100)  # "out of 100" is the scale of every score, so it is
 _NUMBER = re.compile(r"(?<![\d.,])\d[\d,]*(?:\.\d+)?")
 _DATASET_ID = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+_SUPPORT_WORDS = re.compile(
+    r"\b(support|supports|supported|supporting|backs|backed|favou?rs|favou?red|favou?rable)\b",
+    re.IGNORECASE,
+)
 _MARKUP = ("<", ">", "```", "](", "**")
 _PROMISES = (
     "guarantee", "risk-free", "risk free", "will make money", "you will make", "certain to",
@@ -120,7 +124,22 @@ def validate_summary(summary: str, analysis: AnalyzeResponse) -> str | None:
     for dataset_id in _DATASET_ID.findall(summary):
         if dataset_id not in known_ids:
             return f"it cited the dataset ID {dataset_id}, which is not in the facts"
+    against_ids = {e.id for e in analysis.evidence if e.direction == "against"}
+    for sentence in _sentences(summary):
+        for against_id in against_ids & set(_DATASET_ID.findall(sentence)):
+            if _SUPPORT_WORDS.search(sentence):
+                return (
+                    f"it described {against_id} as support, but that evidence argues against "
+                    "the option it is linked to"
+                )
     recommended = recommended_option(analysis)
+    rec_evidence = linked_evidence(analysis, analysis.ranking.recommended_id)
+    if (
+        rec_evidence is not None
+        and rec_evidence.direction == "against"
+        and "against" not in lowered
+    ):
+        return "it must say that market evidence argues against the recommended option"
     if recommended is not None and recommended.title.lower() not in lowered:
         return f"it must name the recommended option exactly: {recommended.title}"
     return None

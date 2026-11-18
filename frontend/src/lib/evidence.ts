@@ -22,6 +22,12 @@ export function evidenceKind(
   return "unverified";
 }
 
+export const AGAINST_BADGE = "Evidence against this option";
+
+export function isAgainst(entry: Pick<Opportunity, "direction">): boolean {
+  return entry.direction === "against";
+}
+
 /** Only real http(s) links are clickable. `.invalid` is reserved and never resolves. */
 export function safeHttpUrl(raw: string): string | null {
   try {

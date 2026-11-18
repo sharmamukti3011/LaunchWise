@@ -7,7 +7,7 @@ from typing import Any
 
 from app.services.analyze_models import AnalyzeResponse, OptionAnalysis
 from app.services.scoring import rupees
-from app.services.strategy_models import OptionScore
+from app.services.strategy_models import Opportunity, OptionScore
 
 
 def option_by_id(analysis: AnalyzeResponse, option_id: str | None) -> OptionAnalysis | None:
@@ -22,6 +22,14 @@ def is_placeholder(entry_id: str) -> bool:
     """Only the old TODO-VERIFY stand-ins are placeholders. A real, cited entry that has not been
     verified yet is "not yet verified", which is a different thing."""
     return entry_id.upper().startswith("TODO-VERIFY")
+
+
+def linked_evidence(analysis: AnalyzeResponse, option_id: str | None) -> Opportunity | None:
+    """The dataset entry an option is linked to, if it is in this response's evidence."""
+    option = option_by_id(analysis, option_id)
+    if option is None or option.opportunity_id is None:
+        return None
+    return next((e for e in analysis.evidence if e.id == option.opportunity_id), None)
 
 
 def figures(option: OptionAnalysis) -> list[dict[str, str]]:
@@ -45,8 +53,11 @@ def figures(option: OptionAnalysis) -> list[dict[str, str]]:
     return [{"label": a, "value": b, "source": c} for a, b, c in rows]
 
 
-def _ranked_entry(score: OptionScore) -> dict[str, Any]:
+def _ranked_entry(score: OptionScore, evidence: Opportunity | None) -> dict[str, Any]:
     return {
+        "market_evidence": None
+        if evidence is None
+        else {"id": evidence.id, "direction": evidence.direction},
         "title": score.title,
         "is_original": score.is_original,
         "total": str(score.total),
@@ -76,7 +87,9 @@ def build_facts(analysis: AnalyzeResponse) -> dict[str, Any]:
         "market_message": analysis.market_message,
         "keep_original": ranking.keep_original,
         "recommended": recommended,
-        "ranked": [_ranked_entry(s) for s in ranking.ranked],
+        "ranked": [
+            _ranked_entry(s, linked_evidence(analysis, s.option_id)) for s in ranking.ranked
+        ],
         "caveats": [c.message for c in ranking.caveats],
         "evidence": [
             {
@@ -84,6 +97,7 @@ def build_facts(analysis: AnalyzeResponse) -> dict[str, Any]:
                 "title": e.title,
                 "status": e.verification_status,
                 "signal": e.signal_strength,
+                "direction": e.direction,
                 "placeholder": is_placeholder(e.id),
             }
             for e in analysis.evidence

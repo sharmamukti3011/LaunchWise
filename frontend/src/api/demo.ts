@@ -57,6 +57,7 @@ export interface Opportunity {
   source_url: string;
   verification_status: "verified" | "single_source" | "unverified_sample";
   signal_strength: "low" | "medium" | "high";
+  direction: "supports" | "against";
   label: string;
 }
 

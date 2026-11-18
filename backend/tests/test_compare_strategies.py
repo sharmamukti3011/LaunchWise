@@ -379,6 +379,19 @@ def test_caveat_for_verification_below_verified(status: str) -> None:
     assert caveat.items == [OPP_ID]
 
 
+def test_the_recommended_option_gets_a_caveat_when_its_evidence_argues_against_it() -> None:
+    against = opportunity(direction="against", signal_strength="low")
+    result = run([thin_original(), market_stall(required_equipment=["oven"])], [against])
+    assert result.recommended_id == "stall"
+    (caveat,) = [c for c in result.caveats if c.kind == "evidence_against"]
+    assert OPP_ID in caveat.message and "against" in caveat.message
+    assert caveat.items == [OPP_ID]
+
+
+def test_supporting_evidence_adds_no_against_caveat() -> None:
+    assert "evidence_against" not in kinds(run([thin_original(), market_stall()]))
+
+
 def test_no_verification_caveat_for_verified_opportunity() -> None:
     result = run([thin_original(), market_stall()])
     assert "verification" not in kinds(result)

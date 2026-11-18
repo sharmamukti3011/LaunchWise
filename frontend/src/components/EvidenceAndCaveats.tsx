@@ -1,5 +1,5 @@
 import type { Analysis, Opportunity } from "../api/demo";
-import { EVIDENCE_LABELS, evidenceKind, safeHttpUrl } from "../lib/evidence";
+import { AGAINST_BADGE, EVIDENCE_LABELS, evidenceKind, isAgainst, safeHttpUrl } from "../lib/evidence";
 import type { EvidenceKind } from "../lib/evidence";
 
 const CARD_STYLES: Record<EvidenceKind, { box: string; note: string }> = {
@@ -15,7 +15,14 @@ function EvidenceCard({ entry }: { entry: Opportunity }) {
   const link = safeHttpUrl(entry.source_url);
   return (
     <li className={`rounded border p-3 text-sm ${style.box}`}>
-      <p className={`mb-1 font-medium ${style.note}`}>{EVIDENCE_LABELS[kind]}</p>
+      <p className={`mb-1 font-medium ${style.note}`}>
+        {EVIDENCE_LABELS[kind]}
+        {isAgainst(entry) && (
+          <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-900">
+            {AGAINST_BADGE}
+          </span>
+        )}
+      </p>
       <p className="font-medium">{entry.title}</p>
       <p className="mt-1 text-slate-700">{entry.signal_summary}</p>
       <p className="mt-1 text-xs text-slate-600">
