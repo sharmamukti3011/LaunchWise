@@ -62,3 +62,35 @@ describe("EvidenceAndCaveats", () => {
     expect(html).toContain("&lt;img");
   });
 });
+
+describe("FSSAI note", () => {
+  const withFood = (food: boolean) =>
+    ({ ...analysis([]), food_business: food }) as unknown as Analysis;
+
+  it("shows the fixed note with its link for a food business", () => {
+    const html = renderToStaticMarkup(<EvidenceAndCaveats analysis={withFood(true)} />);
+    expect(html).toContain("Selling food from home requires FSSAI registration before you start.");
+    expect(html).toContain('href="https://foscos.fssai.gov.in"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it("sits under 'Before you rely on this', before the market evidence", () => {
+    const html = renderToStaticMarkup(<EvidenceAndCaveats analysis={withFood(true)} />);
+    const heading = html.indexOf("Before you rely on this");
+    const note = html.indexOf("FSSAI registration");
+    expect(heading).toBeGreaterThan(-1);
+    expect(note).toBeGreaterThan(heading);
+    expect(note).toBeLessThan(html.indexOf("Market evidence</h2>"));
+  });
+
+  it("is absent for a business that does not sell food", () => {
+    const html = renderToStaticMarkup(<EvidenceAndCaveats analysis={withFood(false)} />);
+    expect(html).not.toContain("FSSAI");
+  });
+
+  it("shows even when the engine has no caveats of its own", () => {
+    const html = renderToStaticMarkup(<EvidenceAndCaveats analysis={withFood(true)} />);
+    expect(html).toContain("FSSAI");
+    expect(html).toContain("The engine has no caveats for this result.");
+  });
+});

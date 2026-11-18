@@ -40,6 +40,20 @@ function EvidenceCard({ entry }: { entry: Opportunity }) {
   );
 }
 
+export const FSSAI_NOTE = "Selling food from home requires FSSAI registration before you start.";
+export const FSSAI_URL = "https://foscos.fssai.gov.in";
+
+function FssaiNote() {
+  return (
+    <p className="mt-2 rounded border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+      {FSSAI_NOTE}{" "}
+      <a href={FSSAI_URL} className="underline" rel="noopener noreferrer" target="_blank">
+        foscos.fssai.gov.in
+      </a>
+    </p>
+  );
+}
+
 export function EvidenceAndCaveats({ analysis }: { analysis: Analysis }) {
   const { caveats } = analysis.ranking;
   return (
@@ -48,8 +62,9 @@ export function EvidenceAndCaveats({ analysis }: { analysis: Analysis }) {
         <h2 id="caveats-heading" className="text-lg font-semibold">
           Before you rely on this
         </h2>
+        {analysis.food_business && <FssaiNote />}
         {caveats.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600">No caveats: nothing was recommended.</p>
+          <p className="mt-2 text-sm text-slate-600">The engine has no caveats for this result.</p>
         ) : (
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {caveats.map((c, i) => (

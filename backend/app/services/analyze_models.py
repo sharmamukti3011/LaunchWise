@@ -195,6 +195,8 @@ class AnalyzeResponse(BaseModel):
     market_message: str
     profile: ConstraintProfile
     category: str
+    # True when the category or an option title names food: the screen then shows the FSSAI note.
+    food_business: bool
     options: list[OptionAnalysis]
     skipped_option_ids: list[str]
     ranking: RankedStrategies

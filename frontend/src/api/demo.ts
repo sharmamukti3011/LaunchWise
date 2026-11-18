@@ -82,6 +82,7 @@ export interface Analysis {
   market_coverage: "covered" | "none";
   market_message: string;
   category: string;
+  food_business: boolean;
   options: OptionAnalysis[];
   skipped_option_ids: string[];
   ranking: {

@@ -25,6 +25,7 @@ from app.services.analyze_models import (
     ValidateConstraintsStep,
     ValidatedConstraints,
 )
+from app.services.business_kind import is_food_business
 from app.services.clock import Clock
 from app.services.compare_strategies import (
     StrategyComparisonError,
@@ -105,6 +106,9 @@ class AnalyzeService:
             market_message=self._message(request, covered, linked, len(analysed) < len(options)),
             profile=profile,
             category=request.category,
+            food_business=is_food_business(
+                " ".join([request.category, *(o.title for o in request.options)])
+            ),
             options=analyses,
             skipped_option_ids=skipped,
             ranking=ranking,
