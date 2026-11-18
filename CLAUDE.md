@@ -34,8 +34,9 @@ Python 3.11+, FastAPI, Pydantic v2, SQLite; React + Tailwind; Docker Compose on 
 - The contact form is gated by `CONTACT_ENABLED` (default false; 503 and no SMTP while off). uvicorn runs with `--no-access-log` on purpose: no personal data (visitor IPs) in logs. Don't remove it.
 
 ## Scope
-- In: home bakery only; feasibility engine, market comparison, What-If simulator, approval flow, template storefront, VPS deploy, contact form to Titan mailbox, guided demo mode.
+- In: home bakery market data and recommendations; other businesses get feasibility-only analysis; feasibility engine, market comparison, What-If simulator, approval flow, template storefront, VPS deploy, contact form to Titan mailbox, guided demo mode.
 - Out (do not build or suggest): cron monitoring, news scraping, SEO/blog publishing, payments, user accounts, multi-agent, multiple verticals, free-form LLM-generated HTML.
+- Market data covers Pune bakeries only, but any location or business still gets a feasibility-only analysis (`market_coverage: "none"`, no pivots, neutral market signal); never invent market claims. StorefrontConfig and the template stay business-agnostic (no cake or bakery wording).
 - Future scope (demo talk only): Hindi/English toggle, trend-based seller offers.
 
 ## How to work

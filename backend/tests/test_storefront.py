@@ -1,6 +1,8 @@
 """StorefrontConfig: frozen, length-limited, no float money, and hashable for approvals."""
 
+import json
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -250,3 +252,39 @@ FRUIT = {"name": "Fruit cake (500 g)", "price": "450"}
 )
 def test_any_change_to_any_field_changes_the_hash(change: dict[str, Any]) -> None:
     assert hash_model(build(**change)) != hash_model(build())
+
+
+# ---- generic: no bakery assumptions -----------------------------------------------------------
+
+NOIDA_BREAKFAST: dict[str, Any] = {
+    "brand": "ProteinStart Noida",
+    "tagline": "High-protein breakfasts, delivered fresh before 9 am.",
+    "products": [
+        {"name": "Paneer bhurji bowl", "description": "About 28 g protein.", "price": "180"},
+        {"name": "Sprouts and egg plate", "price": "150.00"},
+    ],
+    "availability": {
+        "days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+        "note": "Order the night before.",
+    },
+    "capacity_note": "We prepare about 40 breakfasts a day.",
+    "contact_form_enabled": True,
+}
+
+
+def test_a_non_bakery_business_in_noida_validates_and_hashes() -> None:
+    config = StorefrontConfig.model_validate(NOIDA_BREAKFAST)
+    assert config.availability.days == ["mon", "tue", "wed", "thu", "fri", "sat"]
+    digest = hash_model(config)
+    assert len(digest) == 64
+    assert hash_model(StorefrontConfig.model_validate_json(config.model_dump_json())) == digest
+    assert digest != hash_model(build())  # different business, different hash
+
+
+def test_the_schema_assumes_no_particular_business() -> None:
+    words = ("cake", "bak", "bread", "pastry", "oven", "pune")
+    schema_text = json.dumps(StorefrontConfig.model_json_schema()).lower()
+    source = Path(__file__).resolve().parents[1] / "app" / "schemas" / "storefront.py"
+    for word in words:
+        assert word not in schema_text, f"schema mentions {word!r}"
+        assert word not in source.read_text().lower(), f"storefront.py mentions {word!r}"

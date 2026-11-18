@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from app.services.market_data import DATASET_PATH
+from tests.dockerignore import is_excluded, parse_dockerignore
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILES = ["backend/Dockerfile", "frontend/Dockerfile"]
 
@@ -167,3 +170,24 @@ def test_contact_requests_are_size_capped_before_they_reach_the_backend() -> Non
     assert "reverse_proxy backend:8000" in block.group(1)
     # It must come before the general /api/* handler, which would otherwise match first.
     assert caddy.index("handle /api/contact") < caddy.index("handle /api/*")
+
+
+# ---- the market dataset must ship inside the backend image ------------------------------------
+
+
+def test_the_dataset_is_in_the_build_context_and_not_excluded_by_dockerignore() -> None:
+    relative = DATASET_PATH.relative_to(ROOT).as_posix()
+    assert (ROOT / relative).is_file()
+    assert not is_excluded(relative, parse_dockerignore(read(".dockerignore"))), (
+        f"{relative} is excluded by .dockerignore, so the image would crash at startup"
+    )
+
+
+def test_a_copy_instruction_in_the_backend_dockerfile_includes_the_dataset() -> None:
+    relative = DATASET_PATH.relative_to(ROOT).as_posix()
+    sources = re.findall(
+        r"^COPY\s+(?:--\S+\s+)*(\S+)\s+\S+\s*$", directives("backend/Dockerfile"), re.M
+    )
+    assert any(relative == s or relative.startswith(s.rstrip("/") + "/") for s in sources), (
+        f"no COPY in backend/Dockerfile covers {relative}; COPY sources: {sources}"
+    )

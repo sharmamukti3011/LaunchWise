@@ -16,7 +16,9 @@ docs
 .pytest_cache
 .ruff_cache
 **/*.tsbuildinfo
-*.db
-*.sqlite
-*.sqlite3
-*.log
+# Nested paths need **/ : a bare *.db only matches at the context root.
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.log

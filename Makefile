@@ -2,7 +2,7 @@ VENV := .venv
 BIN := $(VENV)/bin
 BACKEND := backend
 
-.PHONY: venv check test fmt run-backend run-frontend check-frontend
+.PHONY: venv check test fmt run-backend run-frontend check-frontend check-dataset
 
 venv:
 	python3 -m venv $(VENV)
@@ -29,3 +29,7 @@ run-frontend:
 
 check-frontend:
 	cd frontend && npm run lint && npm run typecheck
+
+# Run before submission, not part of `make check`: fails while the dataset still holds placeholders.
+check-dataset:
+	cd $(BACKEND) && ../$(BIN)/python scripts/check_dataset.py
