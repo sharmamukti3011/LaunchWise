@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api_errors import handle_scenario_error, handle_validation_error
 from app.body_limit import BodySizeLimitMiddleware
 from app.logging_config import configure_logging
-from app.routes import analyze, contact, demo, evidence, health
+from app.routes import analyze, contact, demo, evidence, health, intake
 from app.services.analyze_explainer import AnalyzeExplainer
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
@@ -18,6 +18,7 @@ from app.services.clock import Clock, SystemClock
 from app.services.contact_service import build_contact_service, contact_startup_message
 from app.services.demo_catalog import load_demo_catalog
 from app.services.demo_service import DemoService
+from app.services.intake_service import IntakeService
 from app.services.mail import MailSender, mail_sender_from_settings
 from app.services.market_data import MarketDataset, load_dataset
 from app.services.orchestrator import ClaudeClient, ExplainService
@@ -28,6 +29,7 @@ from app.settings import Settings, get_settings
 BODY_LIMITS = {
     "/api/analyze": 32 * 1024,
     "/api/analyze/explain": 32 * 1024,
+    "/api/intake": 8 * 1024,  # 1,500 characters is at most about 6 KB
     "/api/contact": 16 * 1024,
 }
 
@@ -84,14 +86,12 @@ def create_app(
         else logging.INFO,
         contact_startup_message(settings),
     )
-    gateway = AnalyzeGateway(
-        AnalyzeService(market, clock),
-        RateLimiter(
-            limit=settings.analyze_rate_limit_per_ip,
-            window=timedelta(seconds=settings.analyze_rate_window_seconds),
-            clock=clock,
-        ),
+    analyze_limiter = RateLimiter(
+        limit=settings.analyze_rate_limit_per_ip,
+        window=timedelta(seconds=settings.analyze_rate_window_seconds),
+        clock=clock,
     )
+    gateway = AnalyzeGateway(AnalyzeService(market, clock), analyze_limiter)
     app.state.analyze_gateway = gateway
     # The demo reuses the analyze gateway, so it shares its rate limit and its outcome logging.
     # The catalog is validated here, so a bad scenario file stops the app at startup.
@@ -109,10 +109,13 @@ def create_app(
     app.state.demo_service = DemoService(load_demo_catalog(), gateway, explain_service)
     app.state.analyze_explainer = AnalyzeExplainer(gateway, explain_service)
     app.state.market_dataset = market
+    # Intake draws on the same Claude call budget and the same per-visitor rate limit.
+    app.state.intake_service = IntakeService(claude, budget, analyze_limiter)
 
     app.include_router(health.router, prefix="/api")
     app.include_router(contact.router, prefix="/api")
     app.include_router(analyze.router, prefix="/api")
     app.include_router(demo.router, prefix="/api")
     app.include_router(evidence.router, prefix="/api")
+    app.include_router(intake.router, prefix="/api")
     return app

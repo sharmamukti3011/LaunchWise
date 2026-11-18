@@ -14,7 +14,7 @@ imports the SDK. This module is deliberately outside the analyze modules.
 import json
 import logging
 import re
-from typing import Literal, Protocol, TypedDict
+from typing import Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -81,10 +81,15 @@ class Explanation(BaseModel):
     fallback_reason: FallbackReason | None = None
 
 
-def _parse(raw: str) -> ExplanationOutput:
+def parse_json_reply(raw: str) -> Any:
+    """The JSON in a reply, tolerating a ```json fence. Raises ValueError if it is not JSON."""
     text = raw.strip()
     fenced = _FENCE.match(text)
-    return ExplanationOutput.model_validate(json.loads(fenced.group(1) if fenced else text))
+    return json.loads(fenced.group(1) if fenced else text)
+
+
+def _parse(raw: str) -> ExplanationOutput:
+    return ExplanationOutput.model_validate(parse_json_reply(raw))
 
 
 class ExplainService:

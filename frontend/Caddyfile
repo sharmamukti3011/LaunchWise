@@ -44,6 +44,14 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		reverse_proxy backend:8000
 	}
 
+	# A description is at most 1,500 characters. Same rule: this block stays above /api/*.
+	handle /api/intake {
+		request_body {
+			max_size 8KB
+		}
+		reverse_proxy backend:8000
+	}
+
 	handle /api/* {
 		reverse_proxy backend:8000
 	}

@@ -226,3 +226,12 @@ def test_the_demo_scenarios_ship_in_the_image() -> None:
         r"^COPY\s+(?:--\S+\s+)*(\S+)\s+\S+\s*$", directives("backend/Dockerfile"), re.M
     )
     assert any(relative.startswith(s.rstrip("/") + "/") for s in sources), sources
+
+
+def test_intake_requests_are_size_capped_in_front_of_the_backend() -> None:
+    caddy = directives("frontend/Caddyfile")
+    block = re.search(r"handle\s+/api/intake\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block, "expected a dedicated handle /api/intake block"
+    assert re.search(r"request_body\s*\{[^}]*max_size\s+8KB", block.group(1))
+    assert "reverse_proxy backend:8000" in block.group(1)
+    assert caddy.index("handle /api/intake") < caddy.index("handle /api/*")

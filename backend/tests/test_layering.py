@@ -52,6 +52,9 @@ CLAUDE_MODULES = [
     "explanation_check",
     "explanation_facts",
     "explanation_template",
+    "intake_models",
+    "intake_check",
+    "intake_service",
 ]
 
 

@@ -327,6 +327,7 @@ def test_the_storefront_path_prefix_is_reserved() -> None:
         "/api/demo/run/{scenario_id}",
         "/api/demo/scenarios",
         "/api/health",
+        "/api/intake",
         "/api/market-evidence",
     ]
     assert [p for p in registered if p == "/s" or p.startswith("/s/")] == []
