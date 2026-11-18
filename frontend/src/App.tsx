@@ -58,8 +58,8 @@ export default function App() {
   }, [selectedId]);
 
   return (
-    <>
-      <main className="mx-auto max-w-4xl p-4 sm:p-8">
+    <div className="flex min-h-screen flex-col">
+      <main className="mx-auto w-full max-w-4xl flex-1 p-4 sm:p-8">
         <h1 className="text-3xl font-semibold">LaunchWise</h1>
         <p className="mt-2 text-slate-600">
           Test a business idea against your real budget, time and skills before you spend anything.
@@ -100,6 +100,6 @@ export default function App() {
         {run && <RunView key={runCount} run={run} />}
       </main>
       <Footer />
-    </>
+    </div>
   );
 }
