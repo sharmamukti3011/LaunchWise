@@ -31,9 +31,9 @@ T = TypeVar("T")
 
 
 class Sourced(BaseModel, Generic[T]):  # noqa: UP046 - keep Python 3.11 compatible
-    """A figure plus where it came from."""
+    """A figure plus where it came from. Unknown keys are rejected."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     value: T
     source: Source

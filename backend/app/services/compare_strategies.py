@@ -99,7 +99,8 @@ def _viability_issues(
     return issues
 
 
-def _feasibility(profile: ConstraintProfile, option: StrategyOption) -> FeasibilityResult:
+def feasibility_for(profile: ConstraintProfile, option: StrategyOption) -> FeasibilityResult:
+    """The engine result for one option, with working capital. The one place this is computed."""
     return run_feasibility(
         to_feasibility_inputs(profile),
         BusinessOption(
@@ -229,7 +230,7 @@ def compare_strategies(
 ) -> RankedStrategies:
     _validate(options, opportunities)
     by_id = {o.id: o for o in opportunities}
-    results = {option.id: _feasibility(profile, option) for option in options}
+    results = {option.id: feasibility_for(profile, option) for option in options}
     scored = [
         _score_option(
             profile,

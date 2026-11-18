@@ -1,0 +1,60 @@
+{
+  "profile": {
+    "budget": "5000",
+    "units_per_day": 3,
+    "days_per_week": 2,
+    "hours_per_week": {
+      "value": 12,
+      "source": "assumption"
+    },
+    "skills": [
+      "baking",
+      "decorating"
+    ],
+    "equipment": [
+      "oven",
+      "mixer"
+    ],
+    "location": "Pune"
+  },
+  "category": "home bakery",
+  "options": [
+    {
+      "id": "original-cakes",
+      "title": "Everyday cakes (original idea)",
+      "is_original": true,
+      "price": "500",
+      "variable_cost_per_unit": "520",
+      "fixed_startup_costs": "1500",
+      "minutes_per_unit": {
+        "value": 60,
+        "source": "user_provided"
+      },
+      "required_skills": [
+        "baking"
+      ],
+      "required_equipment": [
+        "oven"
+      ]
+    },
+    {
+      "id": "premium-wedding-cakes",
+      "title": "Premium wedding cakes",
+      "is_original": false,
+      "price": "1200",
+      "variable_cost_per_unit": "400",
+      "fixed_startup_costs": "40000",
+      "minutes_per_unit": {
+        "value": 90,
+        "source": "assumption"
+      },
+      "required_skills": [
+        "baking"
+      ],
+      "required_equipment": [
+        "walk-in fridge"
+      ],
+      "opportunity_id": "TODO-VERIFY-PUNE-001"
+    }
+  ]
+}

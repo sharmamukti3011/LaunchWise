@@ -1,0 +1,81 @@
+{
+  "profile": {
+    "budget": "10000",
+    "units_per_day": 3,
+    "days_per_week": 2,
+    "hours_per_week": {
+      "value": 12,
+      "source": "assumption"
+    },
+    "skills": [
+      "baking",
+      "decorating"
+    ],
+    "equipment": [
+      "oven",
+      "mixer"
+    ],
+    "location": "Pune"
+  },
+  "category": "home bakery",
+  "options": [
+    {
+      "id": "original-cakes",
+      "title": "Everyday cakes (original idea)",
+      "is_original": true,
+      "price": "500",
+      "variable_cost_per_unit": "450",
+      "fixed_startup_costs": "3000",
+      "minutes_per_unit": {
+        "value": 60,
+        "source": "user_provided"
+      },
+      "required_skills": [
+        "baking"
+      ],
+      "required_equipment": [
+        "oven"
+      ]
+    },
+    {
+      "id": "custom-celebration-cakes",
+      "title": "Custom celebration cakes",
+      "is_original": false,
+      "price": "1400",
+      "variable_cost_per_unit": "500",
+      "fixed_startup_costs": "4000",
+      "minutes_per_unit": {
+        "value": 100,
+        "source": "assumption"
+      },
+      "required_skills": [
+        "baking",
+        "decorating"
+      ],
+      "required_equipment": [
+        "oven"
+      ],
+      "opportunity_id": "TODO-VERIFY-PUNE-001"
+    },
+    {
+      "id": "small-shop",
+      "title": "Open a small shop",
+      "is_original": false,
+      "price": "900",
+      "variable_cost_per_unit": "300",
+      "fixed_startup_costs": "150000",
+      "minutes_per_unit": {
+        "value": 90,
+        "source": "assumption"
+      },
+      "required_skills": [
+        "baking",
+        "decorating"
+      ],
+      "required_equipment": [
+        "commercial oven"
+      ],
+      "opportunity_id": "TODO-VERIFY-PUNE-003"
+    }
+  ]
+}

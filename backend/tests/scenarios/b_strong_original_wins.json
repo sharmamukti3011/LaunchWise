@@ -1,0 +1,61 @@
+{
+  "profile": {
+    "budget": "10000",
+    "units_per_day": 3,
+    "days_per_week": 2,
+    "hours_per_week": {
+      "value": 12,
+      "source": "assumption"
+    },
+    "skills": [
+      "baking",
+      "decorating"
+    ],
+    "equipment": [
+      "oven",
+      "mixer"
+    ],
+    "location": "Pune"
+  },
+  "category": "home bakery",
+  "options": [
+    {
+      "id": "original-cakes",
+      "title": "Everyday cakes (original idea)",
+      "is_original": true,
+      "price": "750",
+      "variable_cost_per_unit": "450",
+      "fixed_startup_costs": "3000",
+      "minutes_per_unit": {
+        "value": 60,
+        "source": "user_provided"
+      },
+      "required_skills": [
+        "baking"
+      ],
+      "required_equipment": [
+        "oven"
+      ]
+    },
+    {
+      "id": "sourdough-subscription",
+      "title": "Sourdough bread subscription",
+      "is_original": false,
+      "price": "300",
+      "variable_cost_per_unit": "80",
+      "fixed_startup_costs": "2000",
+      "minutes_per_unit": {
+        "value": 60,
+        "source": "assumption"
+      },
+      "required_skills": [
+        "baking"
+      ],
+      "required_equipment": [
+        "deck oven",
+        "proofing basket"
+      ],
+      "opportunity_id": "TODO-VERIFY-PUNE-002"
+    }
+  ]
+}
