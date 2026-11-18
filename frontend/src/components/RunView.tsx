@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { explainScenario } from "../api/demo";
 import type { DemoRun } from "../api/demo";
 import { ExplanationPanel } from "./ExplanationPanel";
+import { Recommendation } from "./Recommendation";
 import type { ExplanationState } from "./ExplanationPanel";
 import { EvidenceAndCaveats } from "./EvidenceAndCaveats";
 import { ScoreTable } from "./ScoreTable";
@@ -11,24 +12,6 @@ const STEP_DELAY_MS = 700;
 
 function prefersReducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function Recommendation({ run }: { run: DemoRun }) {
-  const { ranking, options } = run.analysis;
-  const title = options.find((o) => o.option_id === ranking.recommended_id)?.title;
-  let message: string;
-  if (!title) message = "None of these options is viable with your constraints yet.";
-  else if (ranking.keep_original) message = `Keep your original idea: ${title}.`;
-  else message = `Switch to: ${title}.`;
-  return (
-    <section aria-labelledby="rec-heading" className="rounded-lg border-2 border-emerald-600 bg-emerald-50 p-4">
-      <h2 id="rec-heading" className="text-sm font-medium text-emerald-900">
-        Recommendation
-      </h2>
-      <p className="mt-1 text-xl font-semibold">{message}</p>
-      <p className="mt-1 text-sm text-slate-700">A suggestion from deterministic math, not a promise of profit.</p>
-    </section>
-  );
 }
 
 /** Mount with a fresh `key` per run: the replay state then starts clean without an effect reset. */
