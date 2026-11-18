@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { EvidenceChoice } from "../api/analyze";
 import { EMPTY_FORM, FIELD_TEXT } from "../lib/ownIdea";
 import type { FormErrors, OwnIdeaForm } from "../lib/ownIdea";
+import type { Marks } from "../lib/intakeDraft";
 import { OwnIdeaFormView } from "./OwnIdeaForm";
+import type { IntakeUi } from "./OwnIdeaForm";
 
 const noop = () => undefined;
 const EVIDENCE: EvidenceChoice[] = [
@@ -11,17 +13,30 @@ const EVIDENCE: EvidenceChoice[] = [
   { id: "PUNE-003", title: "Shop rents are high", source_name: "Housing.com", direction: "against" },
 ];
 
+const IDLE_INTAKE: IntakeUi = { text: "", running: false, message: null, unavailable: false };
+
 function render(
-  over: { form?: OwnIdeaForm; errors?: FormErrors; running?: boolean; evidence?: EvidenceChoice[] } = {},
+  over: {
+    form?: OwnIdeaForm;
+    errors?: FormErrors;
+    running?: boolean;
+    evidence?: EvidenceChoice[];
+    marks?: Marks;
+    intake?: Partial<IntakeUi>;
+  } = {},
 ): string {
   return renderToStaticMarkup(
     <OwnIdeaFormView
       form={over.form ?? EMPTY_FORM}
       errors={over.errors ?? {}}
+      marks={over.marks ?? {}}
+      intake={{ ...IDLE_INTAKE, ...over.intake }}
       evidence={over.evidence ?? EVIDENCE}
       running={over.running ?? false}
       onChange={noop}
       onSubmit={noop}
+      onIntakeText={noop}
+      onIntakeSubmit={noop}
     />,
   );
 }
@@ -119,5 +134,88 @@ describe("Try your own idea", () => {
     const html = render();
     expect(html).toMatch(/id="own-location"[^>]*maxLength="80"|maxLength="80"[^>]*id="own-location"/);
     expect(html).toMatch(/id="own-category"[^>]*maxLength="60"|maxLength="60"[^>]*id="own-category"/);
+  });
+});
+
+
+describe("Describe your idea", () => {
+  it("has a labelled textarea above the form, limited to 1,500 characters", () => {
+    const html = render();
+    expect(html).toMatch(/<label[^>]*for="own-description"/);
+    expect(html).toMatch(/<textarea[^>]*id="own-description"[^>]*maxLength="1500"|<textarea[^>]*maxLength="1500"[^>]*id="own-description"/);
+    expect(html.indexOf("own-description")).toBeLessThan(html.indexOf("<form"));
+  });
+
+  it("keeps the textarea outside the form, so pressing Enter in it cannot run the analysis", () => {
+    const html = render();
+    const form = html.slice(html.indexOf("<form"), html.indexOf("</form>"));
+    expect(form).not.toContain("own-description");
+  });
+
+  it("has a 'Fill the form for me' button that only fills, and a separate 'Run analysis'", () => {
+    const html = render({ intake: { text: "I have 10k" } });
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>Fill the form for me</);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Run analysis</);
+  });
+
+  it("disables the button for an empty description and while reading, and says so", () => {
+    expect(render()).toMatch(/<button[^>]*type="button"[^>]*\sdisabled(=|\s|>)[^>]*>Fill the form for me</);
+    const html = render({ intake: { text: "I have 10k", running: true } });
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*\sdisabled(=|\s|>)/);
+    expect(html).toContain("Reading…");
+  });
+
+  it("says Claude only drafts and the owner checks every field", () => {
+    expect(render()).toMatch(/only (drafts|fills)[^<]*you (check|review|edit)/i);
+  });
+
+  it("shows a character count against the limit", () => {
+    expect(render({ intake: { text: "hello" } })).toContain("5 / 1,500");
+  });
+
+  it("shows a message after filling, as a status, and an error as an alert", () => {
+    const ok = render({ intake: { message: { kind: "info", text: "We filled in what you described." } } });
+    expect(ok).toMatch(/role="status"[^>]*>[^<]*We filled in/);
+    const bad = render({ intake: { message: { kind: "error", text: "Too many requests." } } });
+    expect(bad).toMatch(/role="alert"[^>]*>[^<]*Too many requests/);
+  });
+
+  it("shows 'not available right now' and disables the button when Claude is not set up", () => {
+    const html = render({
+      intake: { text: "x", unavailable: true, message: { kind: "error", text: "Describing your idea is not available right now. Please fill in the form below." } },
+    });
+    expect(html).toContain("not available right now");
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*\sdisabled(=|\s|>)/);
+  });
+
+  it("shows the description as typed, escaped", () => {
+    const html = render({ intake: { text: "<script>alert(1)</script>" } });
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("marks from a draft", () => {
+  it("shows 'from your description' next to a filled field", () => {
+    const html = render({ marks: { budget: "from_description" } });
+    expect(html).toMatch(/id="own-budget-mark"[^>]*>from your description</);
+    expect(html).toMatch(/aria-describedby="[^"]*own-budget-mark/);
+  });
+
+  it("highlights an empty flagged field and says 'please fill in'", () => {
+    const html = render({ marks: { daysPerWeek: "please_fill" } });
+    expect(html).toMatch(/id="own-daysPerWeek-mark"[^>]*>please fill in</);
+    expect(html).toMatch(/id="own-daysPerWeek"[^>]*class="[^"]*border-amber-500|class="[^"]*border-amber-500[^"]*"[^>]*id="own-daysPerWeek"/);
+  });
+
+  it("marks only the fields that were marked", () => {
+    const html = render({ marks: { budget: "from_description" } });
+    expect(html.match(/from your description/g)).toHaveLength(1);
+    expect(html).not.toContain("please fill in");
+  });
+
+  it("links both a mark and an error to the field for screen readers", () => {
+    const html = render({ marks: { budget: "from_description" }, errors: { budget: "Enter your budget." } });
+    expect(html).toMatch(/aria-describedby="own-budget-error own-budget-mark"|aria-describedby="own-budget-mark own-budget-error"/);
   });
 });
