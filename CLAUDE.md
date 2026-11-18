@@ -26,6 +26,12 @@ Python 3.11+, FastAPI, Pydantic v2, SQLite; React + Tailwind; Docker Compose on 
 - Check frontend: `make check-frontend` (eslint and type check).
 - `docker compose up`: not created yet; add when it exists.
 
+## Deployment
+- Host: Ubuntu 24.04 VPS (GoDaddy), run with Docker Compose v5.
+- Reverse proxy: Caddy with automatic HTTPS; only ports 80 and 443 are public.
+- Domain: `launchwise.pro`; `www.launchwise.pro` redirects to the root domain.
+- Secrets live only in a server-side `.env` loaded via `env_file`. Never in images, the repo, or logs.
+
 ## Scope
 - In: home bakery only; feasibility engine, market comparison, What-If simulator, approval flow, template storefront, VPS deploy, contact form to Titan mailbox, guided demo mode.
 - Out (do not build or suggest): cron monitoring, news scraping, SEO/blog publishing, payments, user accounts, multi-agent, multiple verticals, free-form LLM-generated HTML.
