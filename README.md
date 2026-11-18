@@ -37,7 +37,9 @@ curl -fsS https://launchwise.pro/api/health
 ```
 
 - **Secrets** live only in the server-side `.env`, loaded through `env_file`. They are not in the repo, the images, or the compose file.
-- **Contact form** is off until you set `CONTACT_ENABLED=true`. The Titan SMTP values stay placeholders until verified (`TODO(verify)` in `.env.example`).
+- **Contact form** (`POST /api/contact`) is off until you set `CONTACT_ENABLED=true`; while off it answers 503 and never touches SMTP. To enable it: fill the `SMTP_*` and `CONTACT_RECIPIENT` values in `.env` (the Titan host, port and security mode are still `TODO(verify)`), set `CONTACT_ENABLED=true`, then `docker compose up -d --force-recreate backend`. In production the backend refuses to start with the form enabled and the example placeholders, an empty password, or `SMTP_SECURITY=none`. The recipient is fixed in `.env`; a visitor cannot choose it.
+- **Contact abuse limits** are env-tunable with no code change: per visitor address (default 5 per 10 minutes) and across everyone (default 200 per hour). Edit them in `.env` and recreate the backend as above. Rate limits key on the real visitor address: Caddy sets `X-Forwarded-For`, and the backend trusts it only from Caddy's fixed address (`FORWARDED_ALLOW_IPS`).
+- **Logs** hold no personal data: uvicorn's access log is off, and the contact code logs outcomes only (`sent`, `honeypot`, `rate_limited`, `delivery_failed`), never a name, email, message, address or password.
 - **Certificates** are kept in the `caddy-data` volume. Do not run `docker compose down -v`, or the next start re-requests them and can hit Let's Encrypt rate limits.
 - **HSTS starts short** (`max-age=300`, no `includeSubDomains`, no `preload`) so a mistake is cheap to undo. Once launch works, raise it in `frontend/Caddyfile` in steps (a day, a week, then months). Add `includeSubDomains` only if every subdomain serves HTTPS, and `preload` only as a deliberate, hard-to-reverse choice.
 - **Content-Security-Policy** is `default-src 'self'`. Loosen it if the storefront template needs inline styles or external assets.

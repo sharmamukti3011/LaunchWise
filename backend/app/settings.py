@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     contact_recipient: str | None = None
     contact_rate_limit_per_ip: int = Field(default=5, ge=1)
     contact_rate_window_seconds: int = Field(default=600, ge=1)
-    contact_rate_limit_global: int = Field(default=100, ge=1)
+    # Across all visitors, per hour. Raise it in .env when real traffic needs it; no code change.
+    contact_rate_limit_global: int = Field(default=200, ge=1)
+    contact_rate_window_global_seconds: int = Field(default=3600, ge=1)
 
     @model_validator(mode="after")
     def _contact_needs_a_real_mailbox_in_production(self) -> Self:

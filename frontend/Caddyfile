@@ -19,6 +19,15 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		-Server
 	}
 
+	# The contact form is small. Cap the body before it reaches the backend. This block must stay
+	# above /api/*: Caddy runs the first matching handle.
+	handle /api/contact {
+		request_body {
+			max_size 16KB
+		}
+		reverse_proxy backend:8000
+	}
+
 	handle /api/* {
 		reverse_proxy backend:8000
 	}

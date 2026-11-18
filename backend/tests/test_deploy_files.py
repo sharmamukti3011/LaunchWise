@@ -73,6 +73,7 @@ def test_backend_image_copies_only_the_app_and_trusts_no_proxy_by_default() -> N
     text = directives("backend/Dockerfile")
     assert re.search(r"^COPY\s+backend/app\b", text, re.M)
     assert "--proxy-headers" in text
+    assert "--no-access-log" in text  # the access log would record every visitor's IP address
     assert "--forwarded-allow-ips" not in text  # compose sets FORWARDED_ALLOW_IPS explicitly
     assert "HEALTHCHECK" in text
 
@@ -156,3 +157,13 @@ def test_hsts_is_short_lived_without_subdomains_or_preload() -> None:
     caddy = directives("frontend/Caddyfile")
     assert re.search(r'Strict-Transport-Security\s+"?max-age=300"?\s*$', caddy, re.M)
     assert not re.search(r"includeSubDomains|preload", caddy, re.I)
+
+
+def test_contact_requests_are_size_capped_before_they_reach_the_backend() -> None:
+    caddy = directives("frontend/Caddyfile")
+    block = re.search(r"handle\s+/api/contact\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block, "expected a dedicated handle /api/contact block"
+    assert re.search(r"request_body\s*\{[^}]*max_size\s+16KB", block.group(1))
+    assert "reverse_proxy backend:8000" in block.group(1)
+    # It must come before the general /api/* handler, which would otherwise match first.
+    assert caddy.index("handle /api/contact") < caddy.index("handle /api/*")

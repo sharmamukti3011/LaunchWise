@@ -78,7 +78,8 @@ def test_contact_defaults_are_conservative() -> None:
     assert settings.smtp_security == "starttls"
     assert settings.contact_rate_limit_per_ip == 5
     assert settings.contact_rate_window_seconds == 600
-    assert settings.contact_rate_limit_global == 100
+    assert settings.contact_rate_limit_global == 200
+    assert settings.contact_rate_window_global_seconds == 3600  # the global cap is per hour
 
 
 def test_production_with_contact_disabled_needs_no_mailbox_values() -> None:
@@ -143,7 +144,12 @@ def test_unknown_smtp_security_mode_is_rejected() -> None:
 
 @pytest.mark.parametrize(
     "field",
-    ["contact_rate_limit_per_ip", "contact_rate_window_seconds", "contact_rate_limit_global"],
+    [
+        "contact_rate_limit_per_ip",
+        "contact_rate_window_seconds",
+        "contact_rate_limit_global",
+        "contact_rate_window_global_seconds",
+    ],
 )
 def test_rate_limit_settings_must_be_positive(field: str) -> None:
     with pytest.raises(ValidationError):

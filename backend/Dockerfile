@@ -26,4 +26,6 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
 # --proxy-headers makes request.client the real visitor address behind Caddy. Which proxy is
 # trusted is set at run time with FORWARDED_ALLOW_IPS (see docker-compose.yml); the uvicorn
 # default of 127.0.0.1 applies if it is not set.
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# --no-access-log: uvicorn's access log prints every visitor's IP address, and logs must hold no
+# personal data. The app logs outcomes only (see ContactService).
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--no-access-log"]

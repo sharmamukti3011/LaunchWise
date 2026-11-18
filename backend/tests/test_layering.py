@@ -22,3 +22,13 @@ def test_engine_has_no_forbidden_imports() -> None:
         for module in _imported_modules(path):
             assert module.split(".")[0] not in FORBIDDEN, f"{path.name} imports {module}"
             assert not module.startswith("app.services"), f"{path.name} imports {module}"
+
+
+ROUTES_DIR = Path(__file__).resolve().parent.parent / "app" / "routes"
+ROUTE_FORBIDDEN = {"smtplib", "sqlite3", "anthropic", "ssl"}
+
+
+def test_route_handlers_do_not_talk_to_smtp_or_databases_directly() -> None:
+    for path in ROUTES_DIR.rglob("*.py"):
+        for module in _imported_modules(path):
+            assert module.split(".")[0] not in ROUTE_FORBIDDEN, f"{path.name} imports {module}"

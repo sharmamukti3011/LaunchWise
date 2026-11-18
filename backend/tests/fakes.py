@@ -3,6 +3,7 @@
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from email.message import EmailMessage
 
 from app.services.approvals import LaunchPayload
 
@@ -47,3 +48,16 @@ class FakeDeployer:
             self._on_call(run_id, payload)
         if self._fail_with is not None:
             raise self._fail_with
+
+
+class FakeMailSender:
+    """Collects messages instead of sending them. `fail_with` simulates a delivery failure."""
+
+    def __init__(self, fail_with: Exception | None = None) -> None:
+        self.sent: list[EmailMessage] = []
+        self._fail_with = fail_with
+
+    def send(self, message: EmailMessage) -> None:
+        if self._fail_with is not None:
+            raise self._fail_with
+        self.sent.append(message)
