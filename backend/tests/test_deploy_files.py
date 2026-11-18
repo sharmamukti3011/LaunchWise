@@ -200,3 +200,8 @@ def test_analyze_requests_are_size_capped_before_they_reach_the_backend() -> Non
     assert re.search(r"request_body\s*\{[^}]*max_size\s+32KB", block.group(1))
     assert "reverse_proxy backend:8000" in block.group(1)
     assert caddy.index("handle /api/analyze") < caddy.index("handle /api/*")
+
+
+def test_compose_forces_production_so_the_docs_are_off_on_the_server() -> None:
+    backend = service_blocks(read("docker-compose.yml"))["backend"]
+    assert re.search(r"^\s+APP_ENV:\s*production\s*$", backend, re.M)

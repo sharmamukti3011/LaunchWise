@@ -34,7 +34,15 @@ def create_app(
     clock = clock or SystemClock()
     market = dataset or load_dataset()
 
-    app = FastAPI(title="LaunchWise")
+    # Interactive docs and the OpenAPI schema describe every endpoint, so they are development-only.
+    # docker-compose.yml forces APP_ENV=production on the server.
+    docs = settings.app_env == "development"
+    app = FastAPI(
+        title="LaunchWise",
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
     app.dependency_overrides[get_settings] = lambda: settings
 
     # Added first so it sits inside CORS: even a 413 then carries the CORS headers.
