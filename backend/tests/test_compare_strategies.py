@@ -345,7 +345,7 @@ def test_caveats_list_assumption_tagged_inputs_used() -> None:
     result = run([thin_original(), market_stall()])  # fixtures tag hours and minutes as assumptions
     assumptions = [c for c in result.caveats if c.kind == "assumption"]
     assert sorted(c.items[0] for c in assumptions) == ["hours_per_week", "minutes_per_unit"]
-    assert all("assumption" in c.message for c in assumptions)
+    assert all("is assumed" in c.message for c in assumptions)
     assert any("12" in c.message for c in assumptions)  # the value used
     assert any("90" in c.message for c in assumptions)
 
@@ -375,7 +375,9 @@ def test_caveat_for_verification_below_verified(status: str) -> None:
     assert result.recommended_id == "stall"
     (caveat,) = [c for c in result.caveats if c.kind == "verification"]
     assert OPP_ID in caveat.message
-    assert status.replace("_", " ") in caveat.message
+    expected = {"single_source": "single source", "unverified_sample": "not been checked yet"}
+    assert expected[status] in caveat.message
+    assert "_" not in caveat.message  # the status code is not shown
     assert caveat.items == [OPP_ID]
 
 
@@ -442,11 +444,11 @@ def test_engine_assumptions_are_listed_with_their_values() -> None:
     working_capital, demand = engine_caveats(result)
     assert working_capital.items == ["working_capital"]
     assert "₹2,100.00" in working_capital.message
-    assert "first week's variable cost at full capacity" in working_capital.message
+    assert "the first week's running costs at full capacity" in working_capital.message
     assert demand.items == ["demand_factors"]
-    for expected in ("low 25%", "medium 50%", "high 100%"):
+    for expected in ("25%", "50%", "100%"):
         assert expected in demand.message
-    assert all("assumption" in c.message for c in (working_capital, demand))
+    assert all("assumed" in c.message for c in (working_capital, demand))
 
 
 def test_working_capital_value_follows_the_recommended_option() -> None:

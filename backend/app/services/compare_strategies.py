@@ -48,6 +48,13 @@ TOTAL_WEIGHT = Decimal(100)
 TOTAL_PLACES = Decimal("0.01")
 
 
+# How a source below "verified" is put to the owner, in plain words.
+_WEAK_VERIFICATION = {
+    "single_source": "rests on a single source",
+    "unverified_sample": "has not been checked yet",
+}
+
+
 class StrategyComparisonError(ValueError):
     """The options or opportunities handed to `compare_strategies` are inconsistent."""
 
@@ -147,21 +154,24 @@ def _engine_assumption_caveats(result: FeasibilityResult) -> list[Caveat]:
             Caveat(
                 kind="engine_assumption",
                 message=(
-                    f"working capital reserve {rupees(working_capital.value)} is an assumption: "
-                    "first week's variable cost at full capacity"
+                    f"Working capital reserve ({rupees(working_capital.value)}) is assumed: "
+                    "the first week's running costs at full capacity."
                 ),
                 items=["working_capital"],
             )
         )
     levels = result.break_even
-    shares = ", ".join(
-        f"{name} {(point.demand_factor.value * HUNDRED).quantize(Decimal(1))}%"
-        for name, point in (("low", levels.low), ("medium", levels.medium), ("high", levels.high))
-    )
+    shares = [
+        f"{(point.demand_factor.value * HUNDRED).quantize(Decimal(1))}%"
+        for point in (levels.low, levels.medium, levels.high)
+    ]
     caveats.append(
         Caveat(
             kind="engine_assumption",
-            message=f"demand factors are assumptions: {shares} of weekly capacity sold",
+            message=(
+                f"Demand is assumed: we modelled selling {shares[0]}, {shares[1]} and {shares[2]} "
+                "of your weekly capacity."
+            ),
             items=["demand_factors"],
         )
     )
@@ -176,24 +186,25 @@ def _caveats(
 ) -> list[Caveat]:
     caveats: list[Caveat] = []
     for kind, noun, required, have in (
-        ("missing_skills", "skills", option.required_skills, profile.skills),
-        ("missing_equipment", "equipment", option.required_equipment, profile.equipment),
+        ("missing_skills", "Skills", option.required_skills, profile.skills),
+        ("missing_equipment", "Equipment", option.required_equipment, profile.equipment),
     ):
         missing = missing_items(required, have)
         if missing:
-            caveats.append(
-                Caveat(kind=kind, message=f"missing {noun}: {', '.join(missing)}", items=missing)
-            )
-    # Only inputs tagged "assumption" are caveated; user-provided figures are not.
-    for name, sourced in (
-        ("hours_per_week", profile.hours_per_week),
-        ("minutes_per_unit", option.minutes_per_unit),
+            message = f"{noun} this option needs that you haven't listed: {', '.join(missing)}."
+            caveats.append(Caveat(kind=kind, message=message, items=missing))
+    # Only inputs tagged "assumption" are caveated; user-provided figures are not. The message
+    # is written for the owner; `items` keeps the field name for the API.
+    for name, phrase, sourced in (
+        ("hours_per_week", "Weekly hours available ({value})", profile.hours_per_week),
+        ("minutes_per_unit", "Time per item ({value} minutes)", option.minutes_per_unit),
     ):
         if sourced.source == "assumption":
+            text = phrase.format(value=sourced.value)
             caveats.append(
                 Caveat(
                     kind="assumption",
-                    message=f"{name} ({sourced.value}) is an assumption, not user data",
+                    message=f"{text} is assumed, not provided by you",
                     items=[name],
                 )
             )
@@ -204,8 +215,8 @@ def _caveats(
             Caveat(
                 kind="no_market_evidence",
                 message=(
-                    "no market evidence for the original idea: its market signal is a neutral "
-                    f"{NO_EVIDENCE_SCORE}, not a finding"
+                    "There is no market evidence for your original idea, so its market score "
+                    f"is a neutral {NO_EVIDENCE_SCORE}, not a finding."
                 ),
                 items=[],
             )
@@ -219,11 +230,13 @@ def _caveats(
             )
         )
     if opportunity is not None and opportunity.verification_status != "verified":
-        status = opportunity.verification_status.replace("_", " ")
+        how = _WEAK_VERIFICATION[opportunity.verification_status]
         caveats.append(
             Caveat(
                 kind="verification",
-                message=f"market evidence {opportunity.id} is {status}, below verified",
+                message=(
+                    f"Market evidence {opportunity.id} {how}, so treat its signal with caution."
+                ),
                 items=[opportunity.id],
             )
         )
