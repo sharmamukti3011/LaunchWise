@@ -125,26 +125,6 @@
       "verified_on": "2026-11-18",
       "signal_strength": "medium",
       "direction": "supports",
-      "suggestion": {
-        "title": "Custom cakes (1 kg)",
-        "price": {
-          "value": 700,
-          "basis": "from_source",
-          "quote": "from INR 700/kg"
-        },
-        "variable_cost": {
-          "value": 450,
-          "basis": "assumption"
-        },
-        "startup_cost": {
-          "value": 3000,
-          "basis": "assumption"
-        },
-        "minutes_per_unit": {
-          "value": 90,
-          "basis": "assumption"
-        }
-      },
       "required_skills": [],
       "required_equipment": [],
       "lead_time_days": 2,

@@ -17,7 +17,7 @@ from app.services.demo_catalog import load_demo_catalog
 from app.services.explanation_check import validate_summary
 from app.services.explanation_facts import build_facts
 from app.services.explanation_template import templated_summary
-from app.services.market_data import DatasetError, load_dataset
+from app.services.market_data import DatasetError, MarketDataset, load_dataset
 from app.services.orchestrator import SYSTEM_PROMPT
 from app.settings import Settings
 from tests.explain_helpers import IDS, analysis_for
@@ -70,7 +70,7 @@ def totals(result: AnalyzeResponse) -> dict[str, Decimal]:
 # ---- the dataset's suggestion templates -------------------------------------------------------
 
 
-def test_the_shipped_dataset_has_templates_for_the_two_entries_that_support_a_pivot() -> None:
+def test_the_shipped_dataset_has_one_template_and_keeps_pune_005_as_evidence_only() -> None:
     dataset = load_dataset()
     first = dataset.get("PUNE-001")
     assert first is not None and first.suggestion is not None
@@ -80,9 +80,10 @@ def test_the_shipped_dataset_has_templates_for_the_two_entries_that_support_a_pi
     assert template.price.quote is not None and template.price.quote in first.evidence
     for figure in (template.variable_cost, template.startup_cost, template.minutes_per_unit):
         assert figure.basis == "assumption" and figure.quote is None  # the source states none
+    # PUNE-005 overlaps PUNE-001 (both are custom cakes), so it stays as evidence, with no template.
     second = dataset.get("PUNE-005")
-    assert second is not None and second.suggestion is not None
-    assert second.suggestion.price.value == D("700")
+    assert second is not None and second.suggestion is None
+    assert [o.id for o in dataset.opportunities if o.suggestion is not None] == ["PUNE-001"]
 
 
 def test_no_entry_that_argues_against_an_option_has_a_template() -> None:
@@ -172,7 +173,7 @@ def test_the_loader_refuses_a_dataset_with_a_bad_template(tmp_path: Path) -> Non
 @pytest.mark.parametrize("category", ["Home bakery", "bakery", "home bakery", "  HOME   Bakery "])
 def test_every_spelling_of_bakery_matches_the_bakery_templates(category: str) -> None:
     found = load_dataset().suggestion_candidates("Pune", category)
-    assert [o.id for o in found] == ["PUNE-001", "PUNE-005"]
+    assert [o.id for o in found] == ["PUNE-001"]
 
 
 @pytest.mark.parametrize(
@@ -185,27 +186,27 @@ def test_other_places_and_businesses_have_no_candidates(location: str, category:
 
 def test_pune_maharashtra_counts_as_pune() -> None:
     found = load_dataset().suggestion_candidates("Pune, Maharashtra", "bakery")
-    assert len(found) == 2
+    assert len(found) == 1
 
 
 # ---- adding suggestions to a request ----------------------------------------------------------
 
 
-def test_with_no_alternative_two_suggestions_are_added_and_linked_to_their_entries() -> None:
+def test_with_no_alternative_a_suggestion_is_added_and_linked_to_its_entry() -> None:
     result = analyze(sample())
     suggested = [o for o in result.options if o.is_suggested]
-    assert [o.option_id for o in suggested] == ["suggested-pune-001", "suggested-pune-005"]
-    assert [o.opportunity_id for o in suggested] == ["PUNE-001", "PUNE-005"]
-    assert [o.title for o in suggested] == ["Custom celebration cakes", "Custom cakes (1 kg)"]
+    assert [o.option_id for o in suggested] == ["suggested-pune-001"]
+    assert [o.opportunity_id for o in suggested] == ["PUNE-001"]
+    assert [o.title for o in suggested] == ["Custom celebration cakes"]
     assert not option(result, "original").is_suggested
-    assert {e.id for e in result.evidence} == {"PUNE-001", "PUNE-005"}
+    assert {e.id for e in result.evidence} == {"PUNE-001"}
 
 
 def test_with_one_alternative_there_is_room_for_suggestions_too() -> None:
     body = sample()
     body["options"].append(own_alt("mine", "Cupcake boxes"))
     result = analyze(body)
-    assert len([o for o in result.options if o.is_suggested]) == 2
+    assert len([o for o in result.options if o.is_suggested]) == 1
     assert [o.option_id for o in result.options][:2] == ["original", "mine"]
 
 
@@ -219,14 +220,45 @@ def test_with_two_alternatives_nothing_is_suggested() -> None:
 def test_a_suggestion_with_the_same_title_as_one_of_the_owners_options_is_skipped() -> None:
     body = sample()
     body["options"].append(own_alt("mine", "  custom  CELEBRATION cakes ", "900"))
-    suggested = [o.option_id for o in analyze(body).options if o.is_suggested]
-    assert suggested == ["suggested-pune-005"]
+    assert not any(
+        o.is_suggested for o in analyze(body).options
+    )  # the only template is a duplicate
 
 
 def test_a_title_that_duplicates_the_original_idea_is_skipped_too() -> None:
     body = sample()
-    body["options"][0]["title"] = "Custom cakes (1 kg)"
-    assert [o.option_id for o in analyze(body).options if o.is_suggested] == ["suggested-pune-001"]
+    body["options"][0]["title"] = "Custom celebration cakes"
+    assert not any(o.is_suggested for o in analyze(body).options)
+
+
+def synthetic_dataset(*titles: str) -> MarketDataset:
+    """Three bakery entries that each carry a template, to exercise the cap of two."""
+    entries = [
+        opportunity(
+            id=f"TEST-FAKE-00{n}",
+            suggestion=template(title=title, price=figure(value="900")),
+        )
+        for n, title in enumerate(titles, start=1)
+    ]
+    return MarketDataset(entries)
+
+
+def analyze_with(dataset: MarketDataset, body: dict[str, Any]) -> AnalyzeResponse:
+    return AnalyzeService(dataset, FakeClock()).analyze(AnalyzeRequest.model_validate(body))
+
+
+def test_at_most_two_suggestions_are_added_however_many_templates_match() -> None:
+    dataset = synthetic_dataset("First pivot", "Second pivot", "Third pivot")
+    result = analyze_with(dataset, sample())
+    assert [o.title for o in result.options if o.is_suggested] == ["First pivot", "Second pivot"]
+
+
+def test_a_duplicate_title_is_skipped_and_the_next_template_takes_its_place() -> None:
+    dataset = synthetic_dataset("First pivot", "Second pivot", "Third pivot")
+    body = sample()
+    body["options"].append(own_alt("mine", "first PIVOT"))
+    result = analyze_with(dataset, body)
+    assert [o.title for o in result.options if o.is_suggested] == ["Second pivot", "Third pivot"]
 
 
 def test_nothing_is_suggested_unless_the_request_asks_for_it() -> None:
@@ -278,25 +310,12 @@ def test_the_samples_scores_are_worked_out_by_the_same_rules() -> None:
     assert scores["suggested-pune-001"] == {
         "margin": 100, "budget": 80, "capacity": 100, "skill_equipment": 100, "market_signal": 60,
     }  # fmt: skip
-    # PUNE-005 (price 700 from the source; cost 450, startup 3,000, 90 min assumed):
-    #   margin 250 = 35.71% -> 35.71/50*100 = 71. budget: 3,000 + 450*6 = 5,700; headroom 4,300
-    #   = 43% -> 93. capacity: 90 min * 6 = 9 h -> 100. skills 100. market: verified medium 60.
-    #   total = (71*30 + 93*20 + 100*20 + 100*15 + 60*15) / 100 = 8390 / 100 = 83.90
-    assert scores["suggested-pune-005"] == {
-        "margin": 71, "budget": 93, "capacity": 100, "skill_equipment": 100, "market_signal": 60,
-    }  # fmt: skip
-    assert totals(result) == {
-        "suggested-pune-001": D("90.00"),
-        "suggested-pune-005": D("83.90"),
-        "original": D("48.50"),
-    }
+    assert totals(result) == {"suggested-pune-001": D("90.00"), "original": D("48.50")}
 
 
 def test_the_sample_recommends_a_suggestion_because_the_original_is_over_budget() -> None:
     result = analyze(sample())
-    assert [s.option_id for s in result.ranking.ranked] == [
-        "suggested-pune-001", "suggested-pune-005", "original",
-    ]  # fmt: skip
+    assert [s.option_id for s in result.ranking.ranked] == ["suggested-pune-001", "original"]
     assert result.ranking.recommended_id == "suggested-pune-001"
     original = next(s for s in result.ranking.ranked if s.option_id == "original")
     assert not original.viable and "over budget" in original.viability_issues
@@ -323,7 +342,7 @@ def test_a_suggestion_can_be_not_viable() -> None:
 def test_the_score_rows_say_which_options_are_suggestions() -> None:
     result = analyze(sample())
     flags = {s.option_id: s.is_suggested for s in result.ranking.ranked}
-    assert flags == {"suggested-pune-001": True, "suggested-pune-005": True, "original": False}
+    assert flags == {"suggested-pune-001": True, "original": False}
 
 
 # ---- honest provenance ------------------------------------------------------------------------
@@ -371,8 +390,9 @@ def suggestion_caveats(result: AnalyzeResponse) -> list[str]:
 
 def test_there_is_one_caveat_line_per_suggestion_saying_its_figures_are_partly_assumed() -> None:
     messages = suggestion_caveats(analyze(sample()))
-    assert len(messages) == 2
-    first = next(m for m in messages if m.startswith("Custom celebration cakes"))
+    assert len(messages) == 1
+    first = messages[0]
+    assert first.startswith("Custom celebration cakes")
     assert "suggestion" in first and "price comes from YourStory (HerStory)" in first
     assert "assumed" in first and "variable cost" in first and "startup cost" in first
     assert all("assumed" in m for m in messages)
@@ -384,7 +404,7 @@ def test_the_suggestion_caveats_show_even_when_the_recommendation_is_the_owners_
                            "fixed_startup_costs": "500"}  # fmt: skip
     result = analyze(body)
     assert result.ranking.recommended_id == "original"
-    assert len(suggestion_caveats(result)) == 2
+    assert len(suggestion_caveats(result)) == 1
 
 
 def test_the_suggestion_caveats_never_show_a_dataset_id_or_repeat() -> None:
@@ -399,7 +419,10 @@ def test_a_suggestion_step_is_added_only_when_something_was_suggested() -> None:
     assert names.count("suggest_alternatives") == 1
     assert [s.index for s in result.steps] == list(range(1, len(result.steps) + 1))
     step = next(s for s in result.steps if s.tool == "suggest_alternatives")
-    assert "2" in step.title and "suggested" in step.title.lower()
+    assert (
+        step.title.startswith("Suggested 1 alternative from")
+        and "Custom celebration cakes" in step.title
+    )
     assert "suggest_alternatives" not in [
         s.tool for s in analyze(sample(suggest_alternatives=False)).steps
     ]
