@@ -99,7 +99,7 @@ def test_the_engines_existing_caveats_flag_the_assumed_defaults() -> None:
     messages = [c.message for c in result.ranking.caveats]
     # Two options are compared, so each assumed input names the recommended option.
     title = next(o.title for o in result.options if o.option_id == result.ranking.recommended_id)
-    assert f"{title}: weekly hours available (20) is assumed, not provided by you" in messages
+    assert "Weekly hours available (20) is assumed, not provided by you" in messages  # never named
     assert f"{title}: time per item (60 minutes) is assumed, not provided by you" in messages
 
 

@@ -150,14 +150,23 @@ def multi() -> RankedStrategies:
     return result
 
 
-def test_with_several_options_hours_minutes_and_working_capital_name_the_option() -> None:
+def test_with_several_options_time_per_item_and_working_capital_name_the_option() -> None:
     result = multi()
-    assert messages(result, "assumption") == [
-        "Weekend stall: weekly hours available (12) is assumed, not provided by you",
-        "Weekend stall: time per item (100 minutes) is assumed, not provided by you",
-    ]
+    assert "Weekend stall: time per item (100 minutes) is assumed, not provided by you" in messages(
+        result, "assumption"
+    )
     capital = [m for m in messages(result, "engine_assumption") if "orking capital" in m]
     assert len(capital) == 1 and capital[0].startswith("Weekend stall: working capital reserve (₹")
+
+
+def test_weekly_hours_is_a_profile_level_assumption_so_it_is_never_named_and_said_once() -> None:
+    result = multi()
+    hours = [c for c in result.caveats if c.items == ["hours_per_week"]]
+    assert [c.message for c in hours] == [
+        "Weekly hours available (12) is assumed, not provided by you"
+    ]
+    assert not any("weekly hours" in c.message.lower() and ":" in c.message[:40]
+                   for c in result.caveats)  # fmt: skip
 
 
 def test_the_field_names_in_items_are_unchanged_by_the_prefix() -> None:
@@ -207,5 +216,7 @@ def test_a_suggestion_in_the_result_counts_as_another_option() -> None:
     from tests.test_suggestions import analyze, sample
 
     texts = [c.message for c in analyze(sample()).ranking.caveats]
-    assert any(t.startswith("Custom celebration cakes: weekly hours available (20)") for t in texts)
+    assert "Weekly hours available (20) is assumed, not provided by you" in texts
+    assert not any("weekly hours" in t and t.startswith("Custom celebration cakes") for t in texts)
+    assert any(t.startswith("Custom celebration cakes: time per item (100 minutes)") for t in texts)
     assert any(t.startswith("Custom celebration cakes: working capital reserve") for t in texts)

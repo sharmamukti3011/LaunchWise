@@ -248,16 +248,22 @@ def _for_option(title: str, message: str) -> str:
     return f"{title}: {message[:1].lower()}{message[1:]}"
 
 
-def _is_assumed_input(caveat: Caveat) -> bool:
-    """Hours, time per item and the working capital reserve: inputs the engine assumed."""
+def _is_option_specific_assumption(caveat: Caveat) -> bool:
+    """Time per item and the working capital reserve belong to one option.
+
+    Weekly hours is a profile-level assumption: it is the same for every option, so it is never
+    named after one and is said once.
+    """
+    if "hours_per_week" in caveat.items:
+        return False
     return caveat.kind == "assumption" or "working_capital" in caveat.items
 
 
 def _named_for(title: str, caveats: list[Caveat]) -> list[Caveat]:
-    """With several options on the screen, say which one an assumed input belongs to."""
+    """With several options on the screen, say which one an option-specific assumption is for."""
     return [
         c.model_copy(update={"message": _for_option(title, c.message)})
-        if _is_assumed_input(c)
+        if _is_option_specific_assumption(c)
         else c
         for c in caveats
     ]
