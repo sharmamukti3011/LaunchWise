@@ -371,14 +371,15 @@ def test_nothing_in_the_app_hard_codes_the_mail_host() -> None:
     root = Path(__file__).resolve().parents[1] / "app"
     for path in root.rglob("*.py"):
         text = path.read_text().lower()
-        assert "titan.email" not in text, path.name  # the host comes from SMTP_HOST
+        # The host comes from SMTP_HOST, never from code.
+        assert "titan.email" not in text and "secureserver.net" not in text, path.name
 
 
 def test_tests_cannot_open_a_network_connection() -> None:
     import smtplib
 
     with pytest.raises(RuntimeError, match="network"):
-        smtplib.SMTP_SSL("smtp.titan.email", 465, timeout=10)
+        smtplib.SMTP_SSL("smtpout.secureserver.net", 465, timeout=10)
 
 
 # ---- logs and responses never carry visitor data ----------------------------------------------

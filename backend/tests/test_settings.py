@@ -58,13 +58,13 @@ def test_env_example_contains_placeholders_not_real_secrets() -> None:
     )
 
 
-def test_env_example_describes_the_titan_ssl_mailbox_without_real_credentials() -> None:
+def test_env_example_describes_the_godaddy_ssl_mailbox_without_real_credentials() -> None:
     text = ENV_EXAMPLE.read_text()
     values = dict(
         line.split("=", 1) for line in text.splitlines() if "=" in line and not line.startswith("#")
     )
     assert (values["SMTP_HOST"], values["SMTP_PORT"], values["SMTP_SECURITY"]) == (
-        "smtp.titan.email",
+        "smtpout.secureserver.net",
         "465",
         "ssl",
     )
@@ -111,7 +111,7 @@ def test_analyze_rate_limit_settings_must_be_positive(field: str) -> None:
 
 
 def test_production_with_contact_disabled_needs_no_mailbox_values() -> None:
-    # The first deploy must work before Titan details exist.
+    # The first deploy must work before the mailbox details exist.
     settings = Settings(_env_file=None, app_env="production", contact_enabled=False)
     assert settings.contact_enabled is False
 
