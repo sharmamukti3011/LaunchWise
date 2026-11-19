@@ -32,9 +32,11 @@ def get_storefront_service(request: Request) -> StorefrontService:
 def preview_page(
     payload: StarterPageRequest,
     request: Request,
+    response: Response,
     service: Annotated[StorefrontService, Depends(get_storefront_service)],
 ) -> PreviewResult:
     """Build the page from the owner's text and request approval for it. Nothing is public yet."""
+    response.headers["Cache-Control"] = "no-store"
     try:
         return service.preview(payload, _client(request))
     except RateLimited as exc:
@@ -85,9 +87,11 @@ def _limited(exc: RateLimited) -> HTTPException:
 def publish_page(
     payload: PublishBody,
     request: Request,
+    response: Response,
     service: Annotated[StorefrontService, Depends(get_storefront_service)],
 ) -> PublishResult:
     """ "Approve and publish": grants the approvals and puts the previewed page live."""
+    response.headers["Cache-Control"] = "no-store"  # the response carries the unpublish token
     try:
         return service.publish(payload.draft_id, payload.config_hash, _client(request))
     except RateLimited as exc:

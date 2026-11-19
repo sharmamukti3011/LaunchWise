@@ -265,3 +265,18 @@ def test_text_tokens_and_clients_never_reach_logs_or_error_bodies(
     for private in (SENTINEL, SENTINEL.lower(), "zq@example.com", live["unpublish_token"], CLIENT):
         assert private not in caplog.text
         assert private not in bad.text
+
+
+# ---- responses that carry a secret or a draft are never cached --------------------------------
+
+
+def test_preview_and_publish_responses_are_not_cacheable() -> None:
+    client = make()
+    preview = client.post(PREVIEW, json=body())
+    assert preview.headers["cache-control"] == "no-store"
+    published = client.post(
+        PUBLISH,
+        json={"draft_id": preview.json()["draft_id"], "config_hash": preview.json()["config_hash"]},
+    )
+    assert published.status_code == 200 and "unpublish_token" in published.json()
+    assert published.headers["cache-control"] == "no-store"

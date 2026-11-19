@@ -7,6 +7,8 @@
 		# Deliberately no includeSubDomains and no preload.
 		Strict-Transport-Security "max-age=300"
 		X-Content-Type-Options "nosniff"
+		# The site never uses these browser features, so a page (or a bug) cannot ask for them.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'"

@@ -292,3 +292,18 @@ def test_the_database_lives_on_a_named_volume_that_a_rebuild_keeps() -> None:
     # /data exists in the image and belongs to the unprivileged user that runs the app.
     dockerfile = directives("backend/Dockerfile")
     assert "mkdir /data" in dockerfile and "chown app:app /data" in dockerfile
+
+
+def test_caddy_turns_off_browser_features_the_site_never_uses() -> None:
+    snippet = re.search(
+        r"\(security_headers\)\s*\{(.*?)\n\}", directives("frontend/Caddyfile"), re.S
+    )
+    assert snippet, "expected a (security_headers) snippet"
+    policy = re.search(r'Permissions-Policy\s+"([^"]+)"', snippet.group(1))
+    assert policy, "expected a Permissions-Policy header"
+    for feature in ("camera", "microphone", "geolocation", "payment"):
+        assert f"{feature}=()" in policy.group(1)
+
+
+def test_caddy_does_not_log_requests() -> None:
+    assert not re.search(r"^\s*log\b", directives("frontend/Caddyfile"), re.M)
