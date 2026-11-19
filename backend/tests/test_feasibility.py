@@ -278,8 +278,10 @@ def test_every_output_figure_carries_a_source(working_capital: bool) -> None:
     assert _untagged_figures(result) == []
 
 
-def test_sources_are_limited_to_the_four_allowed_tags() -> None:
-    assert set(get_args(Source)) == {"user_provided", "derived", "assumption", "estimate"}
+def test_sources_are_limited_to_the_five_allowed_tags() -> None:
+    assert set(get_args(Source)) == {
+        "user_provided", "derived", "assumption", "estimate", "from_source",
+    }  # fmt: skip
     with pytest.raises(ValidationError):
         Sourced[int](value=1, source="verified")
 

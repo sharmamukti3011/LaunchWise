@@ -78,6 +78,9 @@ class AnalyzeProfile(ConstraintProfile):
 class AnalyzeOption(StrategyOption):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    # Only LaunchWise marks an option as suggested. A client cannot claim it for its own.
+    is_suggested: Literal[False] = False
+
     id: Slug
     title: Title
     price: BoundedMoney
@@ -97,6 +100,8 @@ class AnalyzeRequest(BaseModel):
     profile: AnalyzeProfile
     category: Category
     options: Annotated[list[AnalyzeOption], Field(min_length=1, max_length=MAX_OPTIONS)]
+    # Off unless asked for, so a plain request (and every guided demo) is analysed as written.
+    suggest_alternatives: bool = False
 
     @field_validator("options")
     @classmethod
@@ -114,6 +119,26 @@ class AnalyzeRequest(BaseModel):
 Coverage = Literal["covered", "none"]
 
 
+class SuggestedFigure(BaseModel):
+    """One figure of a suggestion, and whether the cited source states it or it is assumed."""
+
+    model_config = ConfigDict(frozen=True)
+
+    field: Literal["price", "variable_cost", "startup_cost", "minutes_per_unit"]
+    label: str
+    value: str
+    basis: Literal["from_source", "assumption"]
+    quote: str | None = None
+
+
+class SuggestionInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    evidence_id: str
+    source_name: str
+    figures: list[SuggestedFigure]
+
+
 class OptionAnalysis(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -123,6 +148,8 @@ class OptionAnalysis(BaseModel):
     opportunity_id: str | None
     feasibility: FeasibilityResult
     score: OptionScore
+    is_suggested: bool = False
+    suggestion: SuggestionInfo | None = None
 
 
 class ValidatedConstraints(BaseModel):
@@ -195,8 +222,23 @@ class CompareStrategiesStep(_StepBase):
     result: ComparisonSummary
 
 
+class SuggestionResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    suggested_ids: list[str]
+
+
+class SuggestAlternativesStep(_StepBase):
+    tool: Literal["suggest_alternatives"] = "suggest_alternatives"
+    result: SuggestionResult
+
+
 Step = Annotated[
-    ValidateConstraintsStep | QueryMarketStep | RunFeasibilityStep | CompareStrategiesStep,
+    ValidateConstraintsStep
+    | QueryMarketStep
+    | SuggestAlternativesStep
+    | RunFeasibilityStep
+    | CompareStrategiesStep,
     Field(discriminator="tool"),
 ]
 

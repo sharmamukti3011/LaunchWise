@@ -6,6 +6,7 @@ Money is `Decimal` in rupees, rounded half-up to paise. Floats are rejected.
 
 Every numeric output figure is wrapped in `Sourced` with a tag callers can display:
 - `user_provided`: a value the user supplied, echoed back unchanged.
+- `from_source`: a figure the cited market source itself states (a suggested alternative's price).
 - `derived`: computed by the engine from user inputs alone (margin, capacity, break-even units).
 - `assumption`: a value we chose (demand factors, working capital), not measured.
 - `estimate`: derived using an assumption, so it is only as good as that assumption.
@@ -26,7 +27,7 @@ DEMAND_LOW = Decimal("0.25")
 DEMAND_MEDIUM = Decimal("0.50")
 DEMAND_HIGH = Decimal("1.00")
 
-Source = Literal["user_provided", "derived", "assumption", "estimate"]
+Source = Literal["user_provided", "derived", "assumption", "estimate", "from_source"]
 
 T = TypeVar("T")
 

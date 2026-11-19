@@ -47,7 +47,12 @@ def templated_summary(analysis: AnalyzeResponse) -> str:
     check = rec.feasibility.budget_check
     margin = rec.feasibility.contribution_margin.value
     pct = rec.feasibility.contribution_margin_pct.value
-    if ranking.keep_original:
+    if rec.is_suggested:
+        first = (
+            f"The engine recommends switching to {rec.title}, a suggestion from LaunchWise and "
+            f"not your own idea, which scored {score.total} out of 100."
+        )
+    elif ranking.keep_original:
         first = (
             f"The engine recommends keeping your original idea, {rec.title}, "
             f"which scored {score.total} out of 100."

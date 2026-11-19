@@ -99,6 +99,24 @@ class MarketDataset:
             ]
         )
 
+    def suggestion_candidates(self, location: str, category: str) -> list[Opportunity]:
+        """Entries for this place and business that can suggest an alternative, in dataset order.
+
+        Only entries that support their option qualify; an entry that argues against one never
+        carries a template (the model refuses it), so none can be suggested by mistake.
+        """
+        place = normalise_place(location)
+        if not place:
+            return []
+        return [
+            o
+            for o in self._items
+            if o.suggestion is not None
+            and o.direction == "supports"
+            and normalise_place(o.location) == place
+            and _category_matches(o.category, category)
+        ]
+
     def covers(self, location: str, category: str) -> bool:
         """True if some entry is for this place and this kind of business."""
         place = normalise_place(location)

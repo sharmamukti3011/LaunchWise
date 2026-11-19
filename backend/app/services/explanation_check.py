@@ -189,6 +189,11 @@ def validate_summary(summary: str, analysis: AnalyzeResponse) -> str | None:
         and "against" not in lowered
     ):
         return "it must say that market evidence argues against the recommended option"
+    if recommended is not None and recommended.is_suggested and "suggest" not in lowered:
+        return (
+            "it must say that the recommended option is a suggestion from LaunchWise, "
+            "not the owner's own idea"
+        )
     if recommended is not None and recommended.title.lower() not in lowered:
         return f"it must name the recommended option exactly: {recommended.title}"
     return None

@@ -24,6 +24,12 @@ EvidenceDirection = Literal["supports", "against"]
 HoursPerWeek = Sourced[Annotated[int, Field(ge=0, le=HOURS_IN_WEEK)]]
 
 
+MinutesPerUnit = Sourced[Annotated[int, Field(ge=0)]]
+SuggestionBasis = Literal["from_source", "assumption"]
+MAX_TEMPLATE_MONEY = 10_000_000
+MAX_TEMPLATE_MINUTES = 1_440
+
+
 class ConstraintProfile(BaseModel):
     """Everything we know about the entrepreneur's real constraints."""
 
@@ -49,10 +55,53 @@ class StrategyOption(BaseModel):
     price: Money
     variable_cost_per_unit: Money
     fixed_startup_costs: Money
-    minutes_per_unit: Sourced[Annotated[int, Field(ge=0)]]
+    minutes_per_unit: MinutesPerUnit
     required_skills: list[str] = Field(default_factory=list)
     required_equipment: list[str] = Field(default_factory=list)
     opportunity_id: str | None = None
+    # True only for an option LaunchWise added from a dataset template, never for the owner's own.
+    is_suggested: bool = False
+
+
+class _Figure(BaseModel):
+    """One default figure of a suggestion template, and whether the source states it.
+
+    "from_source" needs a quote: text copied from the entry's evidence, so the claim can be
+    checked. An assumed figure claims no quote.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    basis: SuggestionBasis
+    quote: Annotated[str, Field(min_length=1, max_length=300)] | None = None
+
+    @model_validator(mode="after")
+    def _basis_matches_quote(self) -> Self:
+        if self.basis == "from_source" and self.quote is None:
+            raise ValueError("a figure from the source needs a quote of the source's text")
+        if self.basis == "assumption" and self.quote is not None:
+            raise ValueError("an assumed figure must not claim a quote")
+        return self
+
+
+class SuggestedMoney(_Figure):
+    value: Annotated[Money, Field(le=MAX_TEMPLATE_MONEY)]
+
+
+class SuggestedMinutes(_Figure):
+    value: Annotated[int, Field(ge=0, le=MAX_TEMPLATE_MINUTES)]
+
+
+class SuggestionTemplate(BaseModel):
+    """A pivot a dataset entry supports: a title and default figures for a suggested option."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    title: Annotated[str, Field(min_length=1, max_length=80)]
+    price: SuggestedMoney
+    variable_cost: SuggestedMoney
+    startup_cost: SuggestedMoney
+    minutes_per_unit: SuggestedMinutes
 
 
 class Opportunity(BaseModel):
@@ -76,10 +125,26 @@ class Opportunity(BaseModel):
     verified_on: date | None = None
     signal_strength: SignalStrength
     direction: EvidenceDirection = "supports"
+    suggestion: SuggestionTemplate | None = None
     required_skills: list[str]
     required_equipment: list[str]
     lead_time_days: Annotated[int, Field(ge=0)]
     label: str
+
+    @model_validator(mode="after")
+    def _check_suggestion(self) -> Self:
+        if self.suggestion is None:
+            return self
+        if self.direction == "against":
+            raise ValueError("an entry that argues against an option cannot suggest an alternative")
+        template = self.suggestion
+        for figure in (template.price, template.variable_cost, template.startup_cost,
+                       template.minutes_per_unit):  # fmt: skip
+            if figure.basis == "from_source" and (
+                figure.quote is None or figure.quote not in self.evidence
+            ):
+                raise ValueError("the quote must be text that appears in the entry's evidence")
+        return self
 
     @model_validator(mode="after")
     def _check_dates_and_verifier(self) -> Self:
@@ -118,6 +183,7 @@ class OptionScore(BaseModel):
     option_id: str
     title: str
     is_original: bool
+    is_suggested: bool = False
     scores: list[DimensionScore]
     total: Decimal
     viable: bool
@@ -131,6 +197,7 @@ CaveatKind = Literal[
     "engine_assumption",
     "verification",
     "evidence_against",
+    "suggestion",
     "no_market_evidence",
 ]
 

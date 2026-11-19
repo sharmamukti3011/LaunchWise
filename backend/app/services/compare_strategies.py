@@ -135,6 +135,7 @@ def _score_option(
         option_id=option.id,
         title=option.title,
         is_original=option.is_original,
+        is_suggested=option.is_suggested,
         scores=scores,
         total=(weighted / TOTAL_WEIGHT).quantize(TOTAL_PLACES),
         viable=not issues,

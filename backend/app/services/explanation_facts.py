@@ -55,6 +55,7 @@ def figures(option: OptionAnalysis) -> list[dict[str, str]]:
 
 def _ranked_entry(score: OptionScore, evidence: Opportunity | None) -> dict[str, Any]:
     return {
+        "is_suggested": score.is_suggested,
         "market_evidence": None
         if evidence is None
         else {"source": evidence.source_name, "direction": evidence.direction},
@@ -77,6 +78,8 @@ def build_facts(analysis: AnalyzeResponse) -> dict[str, Any]:
             "title": rec.title,
             "total": str(rec_score.total),
             "is_original": rec.is_original,
+            # True when LaunchWise suggested this option and it is not the owner's own idea.
+            "is_suggestion": rec.is_suggested,
             "figures": figures(rec),
         }
     return {
