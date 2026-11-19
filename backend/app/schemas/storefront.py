@@ -19,7 +19,7 @@ from pydantic import (
 )
 
 from app.engine.feasibility import Money
-from app.schemas.text import reject_control_characters
+from app.schemas.text import is_plain_email, reject_control_characters
 
 MAX_PRICE = Decimal("100000")
 MAX_PRODUCTS = 12
@@ -38,6 +38,7 @@ Brand = Annotated[str, _line(1, 60), _CLEAN]
 Tagline = Annotated[str, _line(1, 120), _CLEAN]
 ProductName = Annotated[str, _line(1, 60), _CLEAN]
 ProductDescription = Annotated[str, _line(0, 200), _CLEAN]
+Description = Annotated[str, _line(0, 300), _CLEAN]
 AvailabilityNote = Annotated[str, _line(0, 120), _CLEAN]
 CapacityNote = Annotated[str, _line(1, 200), _CLEAN]
 # Rupees, at most paise precision, never zero or negative, never a float (Money rejects floats).
@@ -67,14 +68,31 @@ class Availability(BaseModel):
         return sorted(days, key=WEEK_ORDER.index)
 
 
+def _plain_email(value: str) -> str:
+    if not is_plain_email(value):
+        raise ValueError("must be a plain email address")
+    return value
+
+
+ContactEmail = Annotated[str, _line(3, 254), _CLEAN, AfterValidator(_plain_email)]
+
+
 class StorefrontConfig(BaseModel):
+    """What a page shows. Tagline, availability and capacity are optional: a starter page never
+    invents opening days or capacity for an owner, so it simply leaves them out."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     brand: Brand
-    tagline: Tagline
+    tagline: Tagline | None = None
+    description: Description = ""
     products: Annotated[list[Product], Field(min_length=1, max_length=MAX_PRODUCTS)]
-    availability: Availability
-    capacity_note: CapacityNote
+    availability: Availability | None = None
+    capacity_note: CapacityNote | None = None
+    # Shown as plain text, never as a link. None when the owner gave no address.
+    contact_email: ContactEmail | None = None
+    # Shows the FSSAI note on the page (set for food businesses).
+    food_notice: bool = False
     contact_form_enabled: bool = False
 
     @field_validator("products")

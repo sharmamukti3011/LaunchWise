@@ -62,6 +62,7 @@ def test_the_model_is_frozen() -> None:
         config.brand = "Changed"  # type: ignore[misc]
     with pytest.raises(ValidationError):
         config.products[0].price = D("1")  # type: ignore[misc]
+    assert config.availability is not None
     with pytest.raises(ValidationError):
         config.availability.note = "x"  # type: ignore[misc]
 
@@ -191,6 +192,7 @@ def test_the_price_ceiling_is_documented_in_one_constant() -> None:
 
 def test_days_are_put_into_week_order_so_equal_sets_are_equal() -> None:
     config = build(availability={"days": ["sun", "fri", "sat"]})
+    assert config.availability is not None
     assert config.availability.days == ["fri", "sat", "sun"]
 
 
@@ -204,9 +206,9 @@ def test_invalid_days_are_rejected(days: list[Any]) -> None:
 
 def test_all_seven_days_are_allowed() -> None:
     days = ["sun", "sat", "fri", "thu", "wed", "tue", "mon"]
-    assert build(availability={"days": days}).availability.days == [
-        "mon", "tue", "wed", "thu", "fri", "sat", "sun",
-    ]  # fmt: skip
+    config = build(availability={"days": days})
+    assert config.availability is not None
+    assert config.availability.days == ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 
 # ---- hashing for approvals --------------------------------------------------------------------
@@ -274,6 +276,7 @@ NOIDA_BREAKFAST: dict[str, Any] = {
 
 def test_a_non_bakery_business_in_noida_validates_and_hashes() -> None:
     config = StorefrontConfig.model_validate(NOIDA_BREAKFAST)
+    assert config.availability is not None
     assert config.availability.days == ["mon", "tue", "wed", "thu", "fri", "sat"]
     digest = hash_model(config)
     assert len(digest) == 64
@@ -288,3 +291,49 @@ def test_the_schema_assumes_no_particular_business() -> None:
     for word in words:
         assert word not in schema_text, f"schema mentions {word!r}"
         assert word not in source.read_text().lower(), f"storefront.py mentions {word!r}"
+
+
+# ---- the starter-page additions: optional, so nothing is invented for the owner ---------------
+
+
+def minimal() -> dict[str, Any]:
+    return {"brand": "Aarti's", "products": [{"name": "Cake", "price": "500"}]}
+
+
+def test_a_starter_page_needs_only_a_brand_and_one_product() -> None:
+    config = StorefrontConfig.model_validate(minimal())
+    assert config.tagline is None and config.availability is None and config.capacity_note is None
+    assert config.description == "" and config.contact_email is None
+    assert config.food_notice is False and config.contact_form_enabled is False
+
+
+def test_the_description_is_limited_to_300_characters_without_control_characters() -> None:
+    StorefrontConfig.model_validate({**minimal(), "description": "d" * 300})
+    for bad in ("d" * 301, "a\nb"):
+        with pytest.raises(ValidationError):
+            StorefrontConfig.model_validate({**minimal(), "description": bad})
+
+
+@pytest.mark.parametrize("email", ["a@example.com", "a.b+c@sub.example.in"])
+def test_the_contact_email_is_plain_text_that_looks_like_an_address(email: str) -> None:
+    assert (
+        StorefrontConfig.model_validate({**minimal(), "contact_email": email}).contact_email
+        == email
+    )
+
+
+@pytest.mark.parametrize(
+    "email", ["nope", "a@b", "a@b.com\nBcc: x@y.z", "<a@b.com>", "mailto:a@b.com"]
+)
+def test_a_bad_contact_email_is_rejected(email: str) -> None:
+    with pytest.raises(ValidationError):
+        StorefrontConfig.model_validate({**minimal(), "contact_email": email})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"description": "A shop."}, {"contact_email": "a@example.com"}, {"food_notice": True}],
+)
+def test_the_new_fields_are_part_of_the_approved_hash(change: dict[str, Any]) -> None:
+    base = StorefrontConfig.model_validate(minimal())
+    assert hash_model(StorefrontConfig.model_validate({**minimal(), **change})) != hash_model(base)

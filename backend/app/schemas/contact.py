@@ -5,21 +5,11 @@ can become an extra mail header. It also forbids unknown fields, so a client can
 recipient (`to`, `cc`, `bcc`, ...): the recipient is set server-side only.
 """
 
-import re
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.text import reject_control_characters
-
-# Plain ASCII addresses only: letters, digits, the usual local-part symbols, and a dotted domain.
-# Deliberately simpler than the RFC, and it needs no extra dependency.
-_EMAIL = re.compile(
-    r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
-    r"@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
-)
-_MAX_LOCAL_PART = 64
+from app.schemas.text import is_plain_email, reject_control_characters
 
 
 class ContactRequest(BaseModel):
@@ -40,8 +30,7 @@ class ContactRequest(BaseModel):
     @classmethod
     def _email_is_a_plain_address(cls, value: str) -> str:
         reject_control_characters(value)
-        local = value.split("@", 1)[0]
-        if len(local) > _MAX_LOCAL_PART or not _EMAIL.fullmatch(value):
+        if not is_plain_email(value):
             raise ValueError("is not a valid email address")
         return value
 
