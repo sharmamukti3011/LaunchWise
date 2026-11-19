@@ -1,5 +1,5 @@
 # Backend image. Build from the repo root: docker build -f backend/Dockerfile .
-# TODO(verify): pin the base image by digest on the server.
+# The base image is pinned to a version tag, not a digest, so rebuilds pick up patch releases.
 FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

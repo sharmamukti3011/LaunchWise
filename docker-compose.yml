@@ -69,7 +69,8 @@ networks:
   launchwise:
     ipam:
       config:
-        # TODO(verify): this subnet must not clash with other networks on the VPS.
+        # A private range chosen to be unlikely to clash. If the VPS already uses it, change it here
+        # and Caddy's fixed address (and FORWARDED_ALLOW_IPS) together.
         - subnet: 10.77.0.0/24
 
 volumes:

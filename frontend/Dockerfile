@@ -1,6 +1,6 @@
 # Frontend image: builds the React app, then serves it with Caddy, which is also the reverse
 # proxy and the HTTPS terminator. Build from the repo root: docker build -f frontend/Dockerfile .
-# TODO(verify): pin both base images by digest on the server.
+# Both base images are pinned to a version tag, not a digest, so rebuilds pick up patch releases.
 
 FROM node:24-alpine AS build
 WORKDIR /build

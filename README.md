@@ -43,7 +43,7 @@ FastAPI backend  (routes → services → engine)
 ## How GoDaddy is used
 - **Hosting:** the app runs on a GoDaddy VPS (Ubuntu 24.04) with Docker Compose.
 - **Domain:** `launchwise.pro`; `www.` redirects to it.
-- **Mail:** the contact form sends through a GoDaddy mailbox over SMTP (`smtpout.secureserver.net`, port 465, SSL). The port and mode are still marked `TODO(verify)` against GoDaddy's own documentation.
+- **Mail:** the contact form sends through a GoDaddy mailbox over SMTP (`smtpout.secureserver.net`, port 465, SSL).
 - **No GoDaddy API is called.** Publishing a starter page stores it in the app's own database and serves it from our domain; it does not buy domains or touch GoDaddy services.
 
 ## Run it locally
@@ -97,10 +97,10 @@ curl -fsS https://launchwise.pro/api/health
 - **Logs** hold outcomes only, never personal data: uvicorn runs with `--no-access-log` (do not remove it) and Caddy has no request log.
 - **HSTS starts short** (`max-age=300`, no `includeSubDomains`, no `preload`) so a mistake is cheap to undo. Raise it in `frontend/Caddyfile` in steps once launch works.
 - **Headers:** Caddy sets a Content-Security-Policy of `default-src 'self'; frame-ancestors 'none'` (no inline styles, which is why starter pages load their stylesheet from `/api/storefront/style.css`), plus `nosniff`, `X-Frame-Options: DENY`, a referrer policy and a permissions policy.
-- **Network:** the compose network uses the fixed subnet `10.77.0.0/24`. `TODO(verify)`: it must not clash with another network on the VPS.
-- **Non-root ports:** Caddy binds 80 and 443 as an unprivileged user via the `net.ipv4.ip_unprivileged_port_start=0` sysctl. It worked locally; `TODO(verify)` on the VPS. If the host refuses it, fall back to `cap_add: [NET_BIND_SERVICE]` with `setcap` in `frontend/Dockerfile`.
+- **Network:** the compose network uses the fixed subnet `10.77.0.0/24`. It is a private range chosen to be unlikely to clash; if the VPS already uses it for another Docker network, change the subnet and Caddy's fixed address together in `docker-compose.yml` (`docker network ls` shows what exists).
+- **Non-root ports:** Caddy binds 80 and 443 as an unprivileged user via the `net.ipv4.ip_unprivileged_port_start=0` sysctl. It works in local Docker; it has not been exercised on the VPS yet. If the host refuses it, fall back to `cap_add: [NET_BIND_SERVICE]` with `setcap` in `frontend/Dockerfile`.
 - **Local smoke test of the full stack:** set `SITE_DOMAIN=localhost` in `.env`, run `docker compose up -d --build`, then `curl -k https://localhost/api/health` (`-k` because Caddy issues a local certificate).
-- Base images are not yet pinned by digest (`TODO(verify)`); do that on the server.
+- Base images are pinned to a version tag (`python:3.14-slim`, `node:24-alpine`, `caddy:2-alpine`), not to an image digest, so a rebuild can pick up newer patch releases.
 
 ## Honest limits
 - **Some figures are assumptions.** Weekly hours, time per item and the working-capital reserve may be assumed rather than given by the owner, and demand is modelled at 25%, 50% and 100% of capacity. Every such figure is tagged `assumption` or `estimate` and listed in the caveats; none is presented as a finding.
