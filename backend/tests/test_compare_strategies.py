@@ -525,8 +525,9 @@ def test_caveats_from_all_options_never_repeat() -> None:
 def test_a_recommendation_still_gets_caveats_for_the_recommended_option_only() -> None:
     result = run([thin_original(), market_stall(required_equipment=["oven"])])
     assert result.recommended_id == "stall"
-    assert not any(c.message.startswith(("Home bakery:", "Weekend market stall:"))
-                   for c in result.caveats)  # fmt: skip
+    # The recommended stall's assumed inputs name it; the other option is never mentioned.
+    assert not any(c.message.startswith("Home bakery:") for c in result.caveats)
+    assert any(c.message.startswith("Weekend market stall:") for c in result.caveats)
 
 
 def test_no_market_evidence_caveat_for_recommended_unlinked_original() -> None:

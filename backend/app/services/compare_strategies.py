@@ -248,6 +248,21 @@ def _for_option(title: str, message: str) -> str:
     return f"{title}: {message[:1].lower()}{message[1:]}"
 
 
+def _is_assumed_input(caveat: Caveat) -> bool:
+    """Hours, time per item and the working capital reserve: inputs the engine assumed."""
+    return caveat.kind == "assumption" or "working_capital" in caveat.items
+
+
+def _named_for(title: str, caveats: list[Caveat]) -> list[Caveat]:
+    """With several options on the screen, say which one an assumed input belongs to."""
+    return [
+        c.model_copy(update={"message": _for_option(title, c.message)})
+        if _is_assumed_input(c)
+        else c
+        for c in caveats
+    ]
+
+
 def _caveats_for_all(
     profile: ConstraintProfile,
     ordered: list[StrategyOption],
@@ -320,9 +335,12 @@ def compare_strategies(
         )
     chosen = next(o for o in options if o.id == best.option_id)
     linked = by_id[chosen.opportunity_id] if chosen.opportunity_id else None
+    caveats = _caveats(profile, chosen, results[chosen.id], linked)
+    if len(options) > 1:
+        caveats = _named_for(chosen.title, caveats)
     return RankedStrategies(
         ranked=scored,
         recommended_id=best.option_id,
         keep_original=best.is_original,
-        caveats=_caveats(profile, chosen, results[chosen.id], linked),
+        caveats=caveats,
     )

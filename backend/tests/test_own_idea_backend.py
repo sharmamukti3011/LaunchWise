@@ -97,8 +97,10 @@ def test_the_engines_existing_caveats_flag_the_assumed_defaults() -> None:
     )
     result = AnalyzeService(load_dataset(), FakeClock()).analyze(request)
     messages = [c.message for c in result.ranking.caveats]
-    assert "Weekly hours available (20) is assumed, not provided by you" in messages
-    assert "Time per item (60 minutes) is assumed, not provided by you" in messages
+    # Two options are compared, so each assumed input names the recommended option.
+    title = next(o.title for o in result.options if o.option_id == result.ranking.recommended_id)
+    assert f"{title}: weekly hours available (20) is assumed, not provided by you" in messages
+    assert f"{title}: time per item (60 minutes) is assumed, not provided by you" in messages
 
 
 def test_the_route_accepts_a_request_with_the_two_figures_left_out() -> None:
