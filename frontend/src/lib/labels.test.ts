@@ -9,6 +9,7 @@ describe("sourceLabel", () => {
     expect(sourceLabel("user_provided")).toBe("you provided");
     expect(sourceLabel("assumption")).toBe("assumption");
     expect(sourceLabel("estimate")).toBe("estimate (uses an assumption)");
+    expect(sourceLabel("from_source")).toBe("from the cited source");
   });
 });
 

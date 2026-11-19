@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { SuggestionInfo } from "../api/demo";
 import type { ResultView } from "../lib/results";
 import { EvidenceAndCaveats } from "./EvidenceAndCaveats";
 import { ExplanationPanel } from "./ExplanationPanel";
@@ -18,7 +19,13 @@ function prefersReducedMotion(): boolean {
  * The results for a demo scenario or for the owner's own idea. Mount with a fresh `key` per
  * result: the replay state then starts clean without an effect reset.
  */
-export function RunView({ result }: { result: ResultView }) {
+export function RunView({
+  result,
+  onUseSuggestion,
+}: {
+  result: ResultView;
+  onUseSuggestion?: (title: string, suggestion: SuggestionInfo) => void;
+}) {
   const { analysis, loadExplanation } = result;
   const steps = analysis.steps;
   const [visible, setVisible] = useState(() => (prefersReducedMotion() ? steps.length : 0));
@@ -55,7 +62,7 @@ export function RunView({ result }: { result: ResultView }) {
         <>
           <Recommendation analysis={analysis} />
           <ExplanationPanel state={explanation} />
-          <ScoreTable analysis={analysis} />
+          <ScoreTable analysis={analysis} onUseSuggestion={onUseSuggestion} />
           <EvidenceAndCaveats analysis={analysis} />
         </>
       )}

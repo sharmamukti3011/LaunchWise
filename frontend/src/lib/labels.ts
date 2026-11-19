@@ -5,6 +5,7 @@ const SOURCE_LABELS: Record<Source, string> = {
   derived: "calculated from your inputs",
   assumption: "assumption",
   estimate: "estimate (uses an assumption)",
+  from_source: "from the cited source",
 };
 
 export function sourceLabel(source: Source): string {

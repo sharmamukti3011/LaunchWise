@@ -6,6 +6,7 @@ const STYLES: Record<Source, string> = {
   derived: "bg-emerald-100 text-emerald-900",
   assumption: "bg-amber-100 text-amber-900",
   estimate: "bg-orange-100 text-orange-900",
+  from_source: "bg-violet-100 text-violet-900",
 };
 
 export function SourceTag({ source }: { source: Source }) {

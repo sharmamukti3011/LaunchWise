@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DemoError, fetchScenarios, runScenario } from "./api/demo";
-import type { DemoScenario } from "./api/demo";
+import type { DemoScenario, SuggestionInfo } from "./api/demo";
 import { ContactForm } from "./components/ContactForm";
 import { Footer } from "./components/Footer";
 import { OwnIdeaSection } from "./components/OwnIdeaForm";
+import type { SuggestionRequest } from "./components/OwnIdeaForm";
 import { RunView } from "./components/RunView";
 import { ScenarioPicker } from "./components/ScenarioPicker";
 import { demoResult } from "./lib/results";
@@ -21,6 +22,7 @@ export default function App() {
   const [scenarios, setScenarios] = useState<DemoScenario[] | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [result, setResult] = useState<ResultView | null>(null);
+  const [suggestionRequest, setSuggestionRequest] = useState<SuggestionRequest | null>(null);
   const [runCount, setRunCount] = useState(0);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,10 @@ export default function App() {
   useEffect(() => {
     if (runCount > 0) resultRef.current?.scrollIntoView({ block: "start" });
   }, [runCount]);
+
+  const copySuggestion = useCallback((title: string, suggestion: SuggestionInfo) => {
+    setSuggestionRequest((previous) => ({ key: (previous?.key ?? 0) + 1, title, suggestion }));
+  }, []);
 
   const showResult = useCallback((next: ResultView) => {
     setResult(next);
@@ -109,9 +115,9 @@ export default function App() {
           </div>
         )}
 
-        <OwnIdeaSection onResult={showResult} />
+        <OwnIdeaSection onResult={showResult} suggestionRequest={suggestionRequest} />
 
-        <div ref={resultRef}>{result && <RunView key={runCount} result={result} />}</div>
+        <div ref={resultRef}>{result && <RunView key={runCount} result={result} onUseSuggestion={copySuggestion} />}</div>
 
         <ContactForm />
       </main>

@@ -155,6 +155,10 @@ describe("buildAnalyzeBody", () => {
     expect(typeof body.options[0].variable_cost_per_unit).toBe("string");
   });
 
+  it("asks for suggested alternatives, which the server adds only in covered places", () => {
+    expect(buildAnalyzeBody(FILLED).suggest_alternatives).toBe(true);
+  });
+
   it("builds the profile and the original idea", () => {
     const body = buildAnalyzeBody(FILLED);
     expect(body.profile).toMatchObject({

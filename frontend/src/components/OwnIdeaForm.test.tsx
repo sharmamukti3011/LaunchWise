@@ -23,6 +23,8 @@ function render(
     evidence?: EvidenceChoice[];
     marks?: Marks;
     intake?: Partial<IntakeUi>;
+    open?: boolean;
+    notice?: string | null;
   } = {},
 ): string {
   return renderToStaticMarkup(
@@ -37,6 +39,9 @@ function render(
       onSubmit={noop}
       onIntakeText={noop}
       onIntakeSubmit={noop}
+      open={over.open ?? false}
+      onToggle={noop}
+      notice={over.notice ?? null}
     />,
   );
 }
@@ -217,5 +222,22 @@ describe("marks from a draft", () => {
   it("links both a mark and an error to the field for screen readers", () => {
     const html = render({ marks: { budget: "from_description" }, errors: { budget: "Enter your budget." } });
     expect(html).toMatch(/aria-describedby="own-budget-error own-budget-mark"|aria-describedby="own-budget-mark own-budget-error"/);
+  });
+});
+
+
+describe("opening and the suggestion notice", () => {
+  it("is closed by default and open when asked, so a suggestion can reveal the form", () => {
+    expect(render()).not.toMatch(/^<details[^>]*\sopen/);
+    expect(render({ open: true })).toMatch(/^<details[^>]*\sopen/);
+  });
+
+  it("shows a status message after a suggestion is copied in", () => {
+    const html = render({ notice: "Filled from LaunchWise's suggestion. Edit anything, then click Run analysis." });
+    expect(html).toMatch(/role="status"[^>]*>[^<]*Filled from LaunchWise/);
+  });
+
+  it("shows no notice by default", () => {
+    expect(render()).not.toContain("Filled from LaunchWise");
   });
 });

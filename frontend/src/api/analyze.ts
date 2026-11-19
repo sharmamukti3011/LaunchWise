@@ -14,6 +14,8 @@ export interface AnalyzeBody {
   };
   category: string;
   options: BodyOption[];
+  /** Ask LaunchWise to add up to two suggested alternatives where it has market data. */
+  suggest_alternatives?: boolean;
 }
 
 export interface BodyOption {

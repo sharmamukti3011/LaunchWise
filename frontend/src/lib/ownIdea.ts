@@ -212,6 +212,8 @@ export function buildAnalyzeBody(form: OwnIdeaForm): AnalyzeBody {
     },
     category: form.category.trim(),
     options: [bodyOption("original", true, form.original)],
+    // The server adds suggestions only where it has market data for the place and business.
+    suggest_alternatives: true,
   };
   if (form.hoursPerWeek.trim() !== "") {
     body.profile.hours_per_week = { value: Number(form.hoursPerWeek.trim()), source: "user_provided" };

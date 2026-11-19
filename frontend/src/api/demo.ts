@@ -1,6 +1,6 @@
 // Types mirror the backend's JSON. Decimals arrive as strings and are only ever displayed.
 
-export type Source = "user_provided" | "derived" | "assumption" | "estimate";
+export type Source = "user_provided" | "derived" | "assumption" | "estimate" | "from_source";
 
 export interface Sourced<T> {
   value: T;
@@ -34,6 +34,8 @@ export interface OptionScore {
   option_id: string;
   title: string;
   is_original: boolean;
+  /** True for an option LaunchWise added from market data, never the owner's own. */
+  is_suggested?: boolean;
   scores: DimensionScore[];
   total: string;
   viable: boolean;
@@ -61,6 +63,20 @@ export interface Opportunity {
   label: string;
 }
 
+export interface SuggestedFigure {
+  field: "price" | "variable_cost" | "startup_cost" | "minutes_per_unit";
+  label: string;
+  value: string;
+  basis: "from_source" | "assumption";
+  quote: string | null;
+}
+
+export interface SuggestionInfo {
+  evidence_id: string;
+  source_name: string;
+  figures: SuggestedFigure[];
+}
+
 export interface OptionAnalysis {
   option_id: string;
   title: string;
@@ -68,11 +84,18 @@ export interface OptionAnalysis {
   opportunity_id: string | null;
   feasibility: Feasibility;
   score: OptionScore;
+  is_suggested?: boolean;
+  suggestion?: SuggestionInfo | null;
 }
 
 export interface Step {
   index: number;
-  tool: "validate_constraints" | "query_market_opportunities" | "run_feasibility" | "compare_strategies";
+  tool:
+    | "validate_constraints"
+    | "query_market_opportunities"
+    | "suggest_alternatives"
+    | "run_feasibility"
+    | "compare_strategies";
   title: string;
   status: "ok";
 }
