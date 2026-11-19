@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PREVIEW_FAILURE_TEXT, StorefrontFailure, previewStarterPage } from "./storefront";
+import {
+  PREVIEW_FAILURE_TEXT,
+  StorefrontFailure,
+  previewStarterPage,
+} from "./storefront";
 import type { StarterBody } from "./storefront";
 
 const BODY: StarterBody = {
@@ -20,7 +24,10 @@ const PREVIEW = {
 };
 
 function respond(status: number, body: unknown = {}) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })),
+  );
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -56,7 +63,10 @@ describe("previewStarterPage", () => {
 
   it("copes with a 422 that has no errors list", async () => {
     respond(422, { detail: "x" });
-    await expect(previewStarterPage(BODY)).rejects.toMatchObject({ kind: "invalid", fields: [] });
+    await expect(previewStarterPage(BODY)).rejects.toMatchObject({
+      kind: "invalid",
+      fields: [],
+    });
   });
 
   it.each([
@@ -68,17 +78,130 @@ describe("previewStarterPage", () => {
     respond(status, { detail: "server words that must never be shown" });
     const error = await previewStarterPage(BODY).catch((e: unknown) => e);
     expect(error).toMatchObject({ kind });
-    expect((error as StorefrontFailure).message).toBe(PREVIEW_FAILURE_TEXT[kind as keyof typeof PREVIEW_FAILURE_TEXT]);
+    expect((error as StorefrontFailure).message).toBe(
+      PREVIEW_FAILURE_TEXT[kind as keyof typeof PREVIEW_FAILURE_TEXT],
+    );
   });
 
   it("treats a network failure as 'network' and lets an abort through", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
-    await expect(previewStarterPage(BODY)).rejects.toMatchObject({ kind: "network" });
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new DOMException("x", "AbortError")));
-    await expect(previewStarterPage(BODY)).rejects.toMatchObject({ name: "AbortError" });
+    await expect(previewStarterPage(BODY)).rejects.toMatchObject({
+      kind: "network",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("x", "AbortError")),
+    );
+    await expect(previewStarterPage(BODY)).rejects.toMatchObject({
+      name: "AbortError",
+    });
   });
 
   it("has fixed text for every failure", () => {
-    for (const text of Object.values(PREVIEW_FAILURE_TEXT)) expect(text.length).toBeGreaterThan(10);
+    for (const text of Object.values(PREVIEW_FAILURE_TEXT))
+      expect(text.length).toBeGreaterThan(10);
+  });
+});
+
+import {
+  PUBLISH_FAILURE_TEXT,
+  PublishFailure,
+  UNPUBLISH_FAILURE_TEXT,
+  UnpublishFailure,
+  publishStarterPage,
+  unpublishPage,
+} from "./storefront";
+
+const PUBLISHED = {
+  slug: "aarti-s-a1b2c3",
+  public_path: "/s/aarti-s-a1b2c3",
+  unpublish_token: "T".repeat(43),
+  expires_in_days: 7,
+};
+
+describe("publishStarterPage", () => {
+  it("POSTs the draft id and the hash of the page that was shown", async () => {
+    respond(200, PUBLISHED);
+    const result = await publishStarterPage("d1", "f".repeat(64));
+    expect(result.public_path).toBe("/s/aarti-s-a1b2c3");
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/storefront/publish");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      draft_id: "d1",
+      config_hash: "f".repeat(64),
+    });
+  });
+
+  it.each([
+    [404, "expired"],
+    [409, "changed"],
+    [503, "full"],
+    [429, "rate_limited"],
+    [422, "server"],
+    [500, "server"],
+  ])(
+    "maps HTTP %i to %s with fixed text, never the server's words",
+    async (status, kind) => {
+      respond(status, { detail: "server words that must never be shown" });
+      const error = await publishStarterPage("d1", "f".repeat(64)).catch(
+        (e: unknown) => e,
+      );
+      expect(error).toBeInstanceOf(PublishFailure);
+      expect(error).toMatchObject({ kind });
+      expect((error as PublishFailure).message).toBe(
+        PUBLISH_FAILURE_TEXT[kind as keyof typeof PUBLISH_FAILURE_TEXT],
+      );
+    },
+  );
+
+  it("treats a network failure as 'network'", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+    await expect(
+      publishStarterPage("d1", "f".repeat(64)),
+    ).rejects.toMatchObject({ kind: "network" });
+  });
+
+  it("has fixed text with no dollar sign", () => {
+    for (const text of Object.values(PUBLISH_FAILURE_TEXT))
+      expect(text).not.toContain("$");
+  });
+});
+
+describe("unpublishPage", () => {
+  it("POSTs the slug and token and resolves on success", async () => {
+    respond(200, { unpublished: true });
+    await expect(
+      unpublishPage("aarti-s-a1b2c3", "T".repeat(43)),
+    ).resolves.toBeUndefined();
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/storefront/unpublish");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      slug: "aarti-s-a1b2c3",
+      token: "T".repeat(43),
+    });
+  });
+
+  it.each([
+    [404, "invalid"],
+    [429, "rate_limited"],
+    [500, "server"],
+  ])("maps HTTP %i to %s with fixed text", async (status, kind) => {
+    respond(status, { detail: "words that must never be shown" });
+    const error = await unpublishPage("a-1", "T".repeat(43)).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(UnpublishFailure);
+    expect(error).toMatchObject({ kind });
+    expect((error as UnpublishFailure).message).toBe(
+      UNPUBLISH_FAILURE_TEXT[kind as keyof typeof UNPUBLISH_FAILURE_TEXT],
+    );
+  });
+
+  it("treats a network failure as 'network'", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+    await expect(unpublishPage("a-1", "T".repeat(43))).rejects.toMatchObject({
+      kind: "network",
+    });
   });
 });

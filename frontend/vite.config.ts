@@ -9,6 +9,7 @@ export default defineConfig({
     rollupOptions: { input: { main: "index.html", notFound: "404.html" } },
   },
   server: {
-    proxy: { "/api": "http://localhost:8000" },
+    // /s/<slug> pages are served by the backend, like /api.
+    proxy: { "/api": "http://localhost:8000", "/s": "http://localhost:8000" },
   },
 });
