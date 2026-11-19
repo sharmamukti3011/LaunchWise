@@ -45,3 +45,9 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(socket.socket, "connect", guarded)
     monkeypatch.setattr(socket.socket, "connect_ex", refuse)
+
+
+@pytest.fixture(autouse=True)
+def _private_database(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """Every test gets its own database file, so none ever writes into the repository."""
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "launchwise-test.db"))

@@ -91,3 +91,34 @@ def render_page(config: StorefrontConfig) -> str:
         "</body>\n"
         "</html>\n"
     )
+
+
+UNAVAILABLE_TEXT = (
+    "This example page is not available. Example pages made with LaunchWise last 7 days."
+)
+
+
+def render_unavailable() -> str:
+    """The one answer for every address that is not a live page: unknown, expired or taken down."""
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="UTF-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+        '<meta name="color-scheme" content="light dark">\n'
+        '<meta name="robots" content="noindex, nofollow">\n'
+        "<title>Page not available · LaunchWise</title>\n"
+        f'<link rel="stylesheet" href="{STYLESHEET_PATH}">\n'
+        "</head>\n"
+        "<body>\n"
+        '<div class="page">\n'
+        "<main>\n"
+        "<h1>Page not available</h1>\n"
+        f"<p>{_text(UNAVAILABLE_TEXT)}</p>\n"
+        "</main>\n"
+        f'<footer><a href="/">{FOOTER_TEXT}</a></footer>\n'
+        "</div>\n"
+        "</body>\n"
+        "</html>\n"
+    )

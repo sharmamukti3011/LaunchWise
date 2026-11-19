@@ -93,10 +93,10 @@ def test_the_catch_all_no_longer_falls_back_to_index_html() -> None:
     assert "404.html" in caddy
 
 
-def test_the_storefront_prefix_is_reserved_and_answers_404_for_now() -> None:
+def test_the_storefront_prefix_is_proxied_to_the_backend_which_answers_for_itself() -> None:
     block = re.search(r"handle\s+/s/\*\s*\{(.*?)\n\t\}", caddy_directives(), re.S)
     assert block, "expected a dedicated handle /s/* block"
-    assert "reverse_proxy" not in block.group(1) and "404" in block.group(1)
+    assert "reverse_proxy backend:8000" in block.group(1) and "error" not in block.group(1)
 
 
 def test_only_error_404s_get_the_page_so_a_backend_outage_is_not_called_not_found() -> None:
@@ -222,9 +222,13 @@ def test_any_other_path_is_a_404_with_the_page_not_found_page(caddy: Caddy, path
 
 
 @pytest.mark.parametrize("path", ["/s/some-bakery", "/s/", "/s/a/b"])
-def test_the_storefront_prefix_is_reserved_and_404s_for_now(caddy: Caddy, path: str) -> None:
+def test_the_storefront_prefix_goes_to_the_backend_not_to_the_404_page(
+    caddy: Caddy, path: str
+) -> None:
+    # No backend runs in this test, so the proxy fails (a 5xx). What matters is that Caddy no
+    # longer answers these itself: the backend decides what a page address shows.
     status, _, body = caddy.get(path)
-    assert status == 404 and "Page not found" in body
+    assert status >= 500 and "Page not found" not in body
 
 
 def test_the_error_page_is_not_itself_a_page_you_can_visit(caddy: Caddy) -> None:

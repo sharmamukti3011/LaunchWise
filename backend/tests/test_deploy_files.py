@@ -254,3 +254,41 @@ def test_the_storefront_stylesheet_ships_in_the_image() -> None:
         r"^COPY\s+(?:--\S+\s+)*(\S+)\s+\S+\s*$", directives("backend/Dockerfile"), re.M
     )
     assert any(relative.startswith(s.rstrip("/") + "/") for s in sources), sources
+
+
+# ---- starter pages are served through Caddy and kept on a volume -------------------------------
+
+
+def test_starter_pages_are_proxied_to_the_backend_in_caddy() -> None:
+    caddy = directives("frontend/Caddyfile")
+    block = re.search(r"handle\s+/s/\*\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block and "reverse_proxy backend:8000" in block.group(1)
+
+
+def test_publish_and_unpublish_bodies_are_capped_in_caddy() -> None:
+    caddy = directives("frontend/Caddyfile")
+    matcher = re.search(r"@pageactions\s+path\s+(.+)", caddy)
+    assert matcher and set(matcher.group(1).split()) == {
+        "/api/storefront/publish",
+        "/api/storefront/unpublish",
+    }
+    block = re.search(r"handle\s+@pageactions\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block and re.search(r"max_size\s+1KB", block.group(1))
+    assert "reverse_proxy backend:8000" in block.group(1)
+    assert caddy.index("handle @pageactions") < caddy.index("handle /api/*")
+
+
+def test_the_database_lives_on_a_named_volume_that_a_rebuild_keeps() -> None:
+    compose = directives("docker-compose.yml")
+    backend = re.search(r"^  backend:\n(.*?)^  caddy:", compose, re.S | re.M)
+    assert backend, "expected a backend service"
+    block = backend.group(1)
+    assert re.search(r"DATABASE_PATH:\s*/data/", block)
+    assert re.search(r"^\s+-\s+launchwise-data:/data\s*$", block, re.M)
+    # Declared as a named volume at the top level, and nothing in the repo removes volumes.
+    assert re.search(r"^volumes:\n(?:\s+.*\n)*?\s+launchwise-data:\s*$", compose, re.M)
+    for name in ("Makefile", "docker-compose.yml"):
+        assert not re.search(r"down\s+(?:-\S+\s+)*-v\b|--volumes", read(name))
+    # /data exists in the image and belongs to the unprivileged user that runs the app.
+    dockerfile = directives("backend/Dockerfile")
+    assert "mkdir /data" in dockerfile and "chown app:app /data" in dockerfile

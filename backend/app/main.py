@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api_errors import handle_scenario_error, handle_validation_error
 from app.body_limit import BodySizeLimitMiddleware
 from app.logging_config import configure_logging
-from app.routes import analyze, contact, demo, evidence, health, intake, storefront
+from app.routes import analyze, contact, demo, evidence, health, intake, pages, storefront
 from app.services.analyze_explainer import AnalyzeExplainer
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
@@ -17,12 +17,15 @@ from app.services.call_budget import CallBudget
 from app.services.claude_client import claude_client_from_settings, claude_startup_message
 from app.services.clock import Clock, SystemClock
 from app.services.contact_service import build_contact_service, contact_startup_message
+from app.services.database import Database
 from app.services.demo_catalog import load_demo_catalog
 from app.services.demo_service import DemoService
+from app.services.example_page import seed_example_page
 from app.services.intake_service import IntakeService
 from app.services.mail import MailSender, mail_sender_from_settings
 from app.services.market_data import MarketDataset, load_dataset
 from app.services.orchestrator import ClaudeClient, ExplainService
+from app.services.page_store import PageStore, SqliteAuditLog
 from app.services.rate_limit import RateLimiter
 from app.services.storefront_service import DRAFT_TTL, StorefrontService
 from app.settings import Settings, get_settings
@@ -33,6 +36,8 @@ BODY_LIMITS = {
     "/api/analyze/explain": 32 * 1024,
     "/api/intake": 8 * 1024,  # 1,500 characters is at most about 6 KB
     "/api/storefront/preview": 4 * 1024,  # a name, a short description, an offer
+    "/api/storefront/publish": 1024,  # an id and a hash
+    "/api/storefront/unpublish": 1024,  # a slug and a token
     "/api/contact": 16 * 1024,
 }
 
@@ -98,7 +103,8 @@ def create_app(
         window=timedelta(seconds=settings.analyze_rate_window_seconds),
         clock=clock,
     )
-    gateway = AnalyzeGateway(AnalyzeService(market, clock), analyze_limiter)
+    analyzer = AnalyzeService(market, clock)
+    gateway = AnalyzeGateway(analyzer, analyze_limiter)
     app.state.analyze_gateway = gateway
     # The demo reuses the analyze gateway, so it shares its rate limit and its outcome logging.
     # The catalog is validated here, so a bad scenario file stops the app at startup.
@@ -113,18 +119,29 @@ def create_app(
         per_key=settings.claude_max_calls_per_session, total=settings.claude_max_calls_global
     )
     explain_service = ExplainService(claude, budget)
-    app.state.demo_service = DemoService(load_demo_catalog(), gateway, explain_service)
+    catalog = load_demo_catalog()
+    app.state.demo_service = DemoService(catalog, gateway, explain_service)
     app.state.analyze_explainer = AnalyzeExplainer(gateway, explain_service)
     app.state.market_dataset = market
     # Intake draws on the same Claude call budget and the same per-visitor rate limit.
     app.state.intake_service = IntakeService(claude, budget, analyze_limiter)
-    # Starter pages: a preview requests approval through the approval service (its own instance,
-    # with a 30-minute window to read the page). Per-visitor, then an overall hourly cap.
+    # Starter pages. Live pages, their expiry, unpublish-token hashes and the approval audit log
+    # are in SQLite on the Docker volume, so they survive restarts and rebuilds. Drafts and
+    # previews stay in memory. The example page is created at startup if it is missing.
+    database = Database(settings.database_path)
+    pages_store = PageStore(database, clock)
+    pages_store.purge_expired()
+    seed_example_page(pages_store, catalog, analyzer)
     app.state.storefront_service = StorefrontService(
-        ApprovalService(clock, ttl=DRAFT_TTL),
+        ApprovalService(clock, ttl=DRAFT_TTL, audit=SqliteAuditLog(database)),
         clock,
         analyze_limiter,
         RateLimiter(limit=OVERALL_PREVIEWS_PER_HOUR, window=timedelta(hours=1), clock=clock),
+        pages=pages_store,
+        publish_limiter=RateLimiter(
+            limit=settings.publish_limit_per_hour, window=timedelta(hours=1), clock=clock
+        ),
+        max_live_pages=settings.max_live_pages,
     )
 
     app.include_router(health.router, prefix="/api")
@@ -134,4 +151,5 @@ def create_app(
     app.include_router(evidence.router, prefix="/api")
     app.include_router(intake.router, prefix="/api")
     app.include_router(storefront.router, prefix="/api")
+    app.include_router(pages.router)
     return app

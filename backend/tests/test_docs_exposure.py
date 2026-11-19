@@ -54,5 +54,7 @@ def test_the_schema_can_still_be_generated_in_process_for_tests_and_tooling() ->
         "/api/intake",
         "/api/market-evidence",
         "/api/storefront/preview",
+        "/api/storefront/publish",
         "/api/storefront/style.css",
+        "/api/storefront/unpublish",
     ]

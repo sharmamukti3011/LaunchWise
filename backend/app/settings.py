@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     contact_rate_limit_global: int = Field(default=200, ge=1)
     contact_rate_window_global_seconds: int = Field(default=3600, ge=1)
 
+    # Starter pages: how many a visitor may publish per hour, and how many may be live at once.
+    publish_limit_per_hour: int = Field(default=3, ge=1)
+    max_live_pages: int = Field(default=50, ge=1)
+
     @property
     def claude_status(self) -> ClaudeStatus:
         """Why Claude explain is on or off. Never carries the key or the model name."""

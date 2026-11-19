@@ -64,15 +64,24 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		reverse_proxy backend:8000
 	}
 
+	# Publishing and unpublishing carry an id and a hash, or a slug and a token: tiny bodies.
+	@pageactions path /api/storefront/publish /api/storefront/unpublish
+	handle @pageactions {
+		request_body {
+			max_size 1KB
+		}
+		reverse_proxy backend:8000
+	}
+
 	handle /api/* {
 		reverse_proxy backend:8000
 	}
 
-	# /s/* is reserved for generated storefronts, which the backend will serve at /s/<slug>.
-	# Until they exist it is a 404 like any other unknown address.
-	# TODO(verify): when storefronts ship, replace this with `reverse_proxy backend:8000`.
+	# Starter pages are served by the backend at /s/<slug>. The backend answers every address
+	# itself (a live page, or its own "not available" 404), sets noindex and no-store, and the
+	# security headers above still apply. Only GET reads anything here.
 	handle /s/* {
-		error 404
+		reverse_proxy backend:8000
 	}
 
 	# The 404 page is shown for unknown addresses. It is not an address you can visit itself.
@@ -87,7 +96,7 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		file_server
 	}
 
-	# Caddy's own 404s (unknown paths, the reserved /s/*) get the Page not found page, with its
+	# Caddy's own 404s (unknown paths) get the Page not found page, with its
 	# status kept at 404. Only 404s: a backend outage (502) must not read "Page not found".
 	# Error responses skip the site's `header` rules, so the security headers are repeated here.
 	handle_errors {

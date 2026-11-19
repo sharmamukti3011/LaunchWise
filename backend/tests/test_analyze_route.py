@@ -316,7 +316,7 @@ def test_a_413_still_carries_cors_headers_for_the_allowed_origin(client: TestCli
     assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
 
 
-def test_the_storefront_path_prefix_is_reserved() -> None:
+def test_the_storefront_pages_are_served_but_hidden_from_the_api_schema() -> None:
     app = create_app(settings())
     registered = list(app.openapi()["paths"])
     assert sorted(registered) == [
@@ -330,12 +330,14 @@ def test_the_storefront_path_prefix_is_reserved() -> None:
         "/api/intake",
         "/api/market-evidence",
         "/api/storefront/preview",
+        "/api/storefront/publish",
         "/api/storefront/style.css",
+        "/api/storefront/unpublish",
     ]
     assert [p for p in registered if p == "/s" or p.startswith("/s/")] == []
     client = TestClient(app)
-    for path in ("/s", "/s/", "/s/some-bakery"):
-        assert client.get(path).status_code == 404  # nothing here squats the storefront prefix
+    for path in ("/s/", "/s/some-bakery"):
+        assert client.get(path).status_code == 404  # unknown pages are a plain 404
 
 
 # ---- startup ----------------------------------------------------------------------------------
