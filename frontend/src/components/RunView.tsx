@@ -6,6 +6,7 @@ import { ExplanationPanel } from "./ExplanationPanel";
 import type { ExplanationState } from "./ExplanationPanel";
 import { Recommendation } from "./Recommendation";
 import { ScoreTable } from "./ScoreTable";
+import { StarterPageSection } from "./StarterPage";
 import { StepLog } from "./StepLog";
 
 const STEP_DELAY_MS = 700;
@@ -64,6 +65,7 @@ export function RunView({
           <ExplanationPanel state={explanation} />
           <ScoreTable analysis={analysis} onUseSuggestion={onUseSuggestion} />
           <EvidenceAndCaveats analysis={analysis} />
+          <StarterPageSection analysis={analysis} />
         </>
       )}
     </div>

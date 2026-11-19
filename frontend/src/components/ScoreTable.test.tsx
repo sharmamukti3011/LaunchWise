@@ -7,6 +7,7 @@ const sourced = <T,>(value: T, source: Source): Sourced<T> => ({ value, source }
 
 function feasibility(startupSource: Source = "user_provided"): OptionAnalysis["feasibility"] {
   return {
+    inputs: { price: sourced("1200.00", "user_provided") },
     startup_cost: sourced("4000.00", startupSource),
     contribution_margin: sourced("700.00", "derived"),
     contribution_margin_pct: sourced("58.33", "derived"),

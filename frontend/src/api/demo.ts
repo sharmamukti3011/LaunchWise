@@ -8,6 +8,8 @@ export interface Sourced<T> {
 }
 
 export interface Feasibility {
+  /** The figures the engine was given. `price` is what the offer on a starter page starts from. */
+  inputs: { price: Sourced<string> };
   startup_cost: Sourced<string>;
   contribution_margin: Sourced<string>;
   contribution_margin_pct: Sourced<string | null>;
