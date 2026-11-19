@@ -33,10 +33,15 @@ _SOURCE_LEAD = re.compile(
     rf"\s+(?P<name>{_NAME_WORD}(?:\s+{_NAME_WORD})*)"
 )
 _MARKUP = ("<", ">", "```", "](", "**")
-_PROMISES = (
-    "guarantee", "risk-free", "risk free", "will make money", "you will make", "certain to",
-    "sure to profit", "cannot lose", "can't lose", "no risk",
-)  # fmt: skip
+# Phrases that promise a result. The first group can be denied ("nothing is guaranteed",
+# "not risk-free"); the second is a promise whatever surrounds it.
+_DENIABLE = ("guarantee", "risk-free", "risk free", "sure to profit", "certain to")
+_ALWAYS_A_PROMISE = ("will make money", "you will make", "cannot lose", "can't lose", "no risk")
+_DENIALS = {
+    "no", "not", "nothing", "none", "never", "cannot", "without", "neither", "nor", "hardly",
+}  # fmt: skip
+_WORDS_BEFORE = 4  # a denial must sit right before the phrase, in the same sentence
+_TOKEN = re.compile(r"[a-z']+")
 
 # Spelled-out numbers are checked like digits. "one" is left out: it is mostly not a figure.
 _SMALL = (
@@ -114,6 +119,26 @@ def _is_known_source(named: str, sources: set[str]) -> bool:
     return any(s.lower() == lowered or s.lower().startswith(lowered + " ") for s in sources)
 
 
+def _is_denial(word: str) -> bool:
+    return word in _DENIALS or word.endswith("n't")
+
+
+def _promises_profit(text: str) -> bool:
+    """True for a promise. "Nothing is guaranteed" and "we cannot guarantee" deny one."""
+    for sentence in _sentences(text):
+        lowered = sentence.lower().replace("’", "'")
+        if any(phrase in lowered for phrase in _ALWAYS_A_PROMISE):
+            return True
+        for phrase in _DENIABLE:
+            start = lowered.find(phrase)
+            while start != -1:
+                before = _TOKEN.findall(lowered[:start])[-_WORDS_BEFORE:]
+                if not any(_is_denial(word) for word in before):
+                    return True
+                start = lowered.find(phrase, start + len(phrase))
+    return False
+
+
 def _sentences(text: str) -> list[str]:
     return [s for s in _SENTENCE_END.split(text.strip()) if s.strip()]
 
@@ -125,7 +150,7 @@ def validate_summary(summary: str, analysis: AnalyzeResponse) -> str | None:
     if any(ord(c) < 32 for c in summary) or any(m in summary for m in _MARKUP):
         return "it must be plain text with no markup or control characters"
     lowered = summary.lower()
-    if any(p in lowered for p in _PROMISES):
+    if _promises_profit(summary):
         return "it made a promise of profit, which is never allowed"
     allowed = allowed_numbers(analysis)
     for number in _numbers_in(summary):
