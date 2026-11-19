@@ -329,6 +329,8 @@ def test_the_storefront_path_prefix_is_reserved() -> None:
         "/api/health",
         "/api/intake",
         "/api/market-evidence",
+        "/api/storefront/preview",
+        "/api/storefront/style.css",
     ]
     assert [p for p in registered if p == "/s" or p.startswith("/s/")] == []
     client = TestClient(app)

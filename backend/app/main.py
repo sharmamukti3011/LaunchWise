@@ -8,10 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api_errors import handle_scenario_error, handle_validation_error
 from app.body_limit import BodySizeLimitMiddleware
 from app.logging_config import configure_logging
-from app.routes import analyze, contact, demo, evidence, health, intake
+from app.routes import analyze, contact, demo, evidence, health, intake, storefront
 from app.services.analyze_explainer import AnalyzeExplainer
 from app.services.analyze_gateway import AnalyzeGateway
 from app.services.analyze_service import AnalyzeService, ScenarioError
+from app.services.approvals import ApprovalService
 from app.services.call_budget import CallBudget
 from app.services.claude_client import claude_client_from_settings, claude_startup_message
 from app.services.clock import Clock, SystemClock
@@ -23,6 +24,7 @@ from app.services.mail import MailSender, mail_sender_from_settings
 from app.services.market_data import MarketDataset, load_dataset
 from app.services.orchestrator import ClaudeClient, ExplainService
 from app.services.rate_limit import RateLimiter
+from app.services.storefront_service import DRAFT_TTL, StorefrontService
 from app.settings import Settings, get_settings
 
 # Request body caps in bytes. Caddy enforces slightly lower caps in front of the app.
@@ -30,8 +32,13 @@ BODY_LIMITS = {
     "/api/analyze": 32 * 1024,
     "/api/analyze/explain": 32 * 1024,
     "/api/intake": 8 * 1024,  # 1,500 characters is at most about 6 KB
+    "/api/storefront/preview": 4 * 1024,  # a name, a short description, an offer
     "/api/contact": 16 * 1024,
 }
+
+
+# Across all visitors, so an unbounded run of previews cannot grow memory without limit.
+OVERALL_PREVIEWS_PER_HOUR = 300
 
 
 def create_app(
@@ -111,6 +118,14 @@ def create_app(
     app.state.market_dataset = market
     # Intake draws on the same Claude call budget and the same per-visitor rate limit.
     app.state.intake_service = IntakeService(claude, budget, analyze_limiter)
+    # Starter pages: a preview requests approval through the approval service (its own instance,
+    # with a 30-minute window to read the page). Per-visitor, then an overall hourly cap.
+    app.state.storefront_service = StorefrontService(
+        ApprovalService(clock, ttl=DRAFT_TTL),
+        clock,
+        analyze_limiter,
+        RateLimiter(limit=OVERALL_PREVIEWS_PER_HOUR, window=timedelta(hours=1), clock=clock),
+    )
 
     app.include_router(health.router, prefix="/api")
     app.include_router(contact.router, prefix="/api")
@@ -118,4 +133,5 @@ def create_app(
     app.include_router(demo.router, prefix="/api")
     app.include_router(evidence.router, prefix="/api")
     app.include_router(intake.router, prefix="/api")
+    app.include_router(storefront.router, prefix="/api")
     return app

@@ -233,3 +233,24 @@ def test_intake_requests_are_size_capped_in_front_of_the_backend() -> None:
     assert re.search(r"request_body\s*\{[^}]*max_size\s+8KB", block.group(1))
     assert "reverse_proxy backend:8000" in block.group(1)
     assert caddy.index("handle /api/intake") < caddy.index("handle /api/*")
+
+
+def test_starter_page_previews_are_size_capped_in_front_of_the_backend() -> None:
+    caddy = directives("frontend/Caddyfile")
+    block = re.search(r"handle\s+/api/storefront/preview\s*\{(.*?)\n\t\}", caddy, re.S)
+    assert block, "expected a dedicated handle /api/storefront/preview block"
+    assert re.search(r"request_body\s*\{[^}]*max_size\s+4KB", block.group(1))
+    assert "reverse_proxy backend:8000" in block.group(1)
+    assert caddy.index("handle /api/storefront/preview") < caddy.index("handle /api/*")
+
+
+def test_the_storefront_stylesheet_ships_in_the_image() -> None:
+    from app.routes.storefront import STYLESHEET
+
+    relative = STYLESHEET.relative_to(ROOT).as_posix()
+    assert (ROOT / relative).is_file()
+    assert not is_excluded(relative, parse_dockerignore(read(".dockerignore")))
+    sources = re.findall(
+        r"^COPY\s+(?:--\S+\s+)*(\S+)\s+\S+\s*$", directives("backend/Dockerfile"), re.M
+    )
+    assert any(relative.startswith(s.rstrip("/") + "/") for s in sources), sources

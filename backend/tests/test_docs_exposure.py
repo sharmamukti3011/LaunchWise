@@ -53,4 +53,6 @@ def test_the_schema_can_still_be_generated_in_process_for_tests_and_tooling() ->
         "/api/health",
         "/api/intake",
         "/api/market-evidence",
+        "/api/storefront/preview",
+        "/api/storefront/style.css",
     ]
