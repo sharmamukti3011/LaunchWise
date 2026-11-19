@@ -1,13 +1,7 @@
 # SITE_DOMAIN comes from the environment (docker-compose.yml); launchwise.pro is the default.
 # Caddy obtains and renews the HTTPS certificates for both names automatically.
 
-www.{$SITE_DOMAIN:launchwise.pro} {
-	redir https://{$SITE_DOMAIN:launchwise.pro}{uri} permanent
-}
-
-{$SITE_DOMAIN:launchwise.pro} {
-	encode zstd gzip
-
+(security_headers) {
 	header {
 		# Short max-age while launch is being proven. Raise it once everything works (see README).
 		# Deliberately no includeSubDomains and no preload.
@@ -18,6 +12,16 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'"
 		-Server
 	}
+}
+
+www.{$SITE_DOMAIN:launchwise.pro} {
+	redir https://{$SITE_DOMAIN:launchwise.pro}{uri} permanent
+}
+
+{$SITE_DOMAIN:launchwise.pro} {
+	encode zstd gzip
+
+	import security_headers
 
 	# The contact form is small. Cap the body before it reaches the backend. This block must stay
 	# above /api/*: Caddy runs the first matching handle.
@@ -56,14 +60,35 @@ www.{$SITE_DOMAIN:launchwise.pro} {
 		reverse_proxy backend:8000
 	}
 
-	# Generated storefronts are served by the backend at /s/<slug>.
+	# /s/* is reserved for generated storefronts, which the backend will serve at /s/<slug>.
+	# Until they exist it is a 404 like any other unknown address.
+	# TODO(verify): when storefronts ship, replace this with `reverse_proxy backend:8000`.
 	handle /s/* {
-		reverse_proxy backend:8000
+		error 404
 	}
 
+	# The 404 page is shown for unknown addresses. It is not an address you can visit itself.
+	handle /404.html {
+		error 404
+	}
+
+	# Only "/" renders the app. Real files (the built /assets/*) are served as they are. There is
+	# no fallback to index.html: any other path is a real 404.
 	handle {
 		root * /srv
-		try_files {path} /index.html
 		file_server
+	}
+
+	# Caddy's own 404s (unknown paths, the reserved /s/*) get the Page not found page, with its
+	# status kept at 404. Only 404s: a backend outage (502) must not read "Page not found".
+	# Error responses skip the site's `header` rules, so the security headers are repeated here.
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			import security_headers
+			root * /srv
+			rewrite * /404.html
+			file_server
+		}
 	}
 }

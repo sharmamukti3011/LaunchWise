@@ -147,13 +147,11 @@ def test_www_redirects_permanently_to_the_root_domain() -> None:
     assert re.search(r"redir\s+https://\{\$SITE_DOMAIN[^}]*\}\{uri\}\s+permanent", caddy)
 
 
-def test_api_and_storefront_paths_go_to_the_backend() -> None:
+def test_api_paths_go_to_the_backend_and_the_rest_is_served_as_static_files() -> None:
     caddy = read("frontend/Caddyfile")
-    for path in ("/api/*", "/s/*"):
-        assert re.search(
-            rf"handle\s+{re.escape(path)}\s*\{{[^}}]*reverse_proxy\s+backend:8000", caddy
-        )
-    assert "file_server" in caddy and "try_files" in caddy
+    assert re.search(r"handle\s+/api/\*\s*\{[^}]*reverse_proxy\s+backend:8000", caddy)
+    # No SPA fallback: unknown paths are 404s (see test_not_found_page.py).
+    assert "file_server" in caddy and "try_files" not in directives("frontend/Caddyfile")
 
 
 def test_hsts_is_short_lived_without_subdomains_or_preload() -> None:

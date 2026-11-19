@@ -4,6 +4,10 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // Two pages: the app, and the 404 page that Caddy shows for any other address.
+    rollupOptions: { input: { main: "index.html", notFound: "404.html" } },
+  },
   server: {
     proxy: { "/api": "http://localhost:8000" },
   },

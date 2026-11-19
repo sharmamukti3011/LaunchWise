@@ -8,7 +8,7 @@ RUN chown node:node /build
 USER node
 COPY --chown=node:node frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-COPY --chown=node:node frontend/index.html frontend/tsconfig.json frontend/vite.config.ts ./
+COPY --chown=node:node frontend/index.html frontend/404.html frontend/tsconfig.json frontend/vite.config.ts ./
 COPY --chown=node:node frontend/src ./src
 RUN npm run build
 

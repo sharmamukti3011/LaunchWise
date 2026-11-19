@@ -31,8 +31,17 @@ def _no_real_claude_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test may open a network connection, so none can ever send a real email."""
 
+    real_connect = socket.socket.connect
+
+    def guarded(self: socket.socket, address: Any) -> None:
+        # Loopback is fine (a test may talk to a local container). Anything else is refused.
+        if isinstance(address, tuple) and address[0] in ("127.0.0.1", "::1", "localhost"):
+            real_connect(self, address)
+            return
+        raise RuntimeError("tests must not open network connections")
+
     def refuse(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("tests must not open network connections")
 
-    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket.socket, "connect", guarded)
     monkeypatch.setattr(socket.socket, "connect_ex", refuse)
