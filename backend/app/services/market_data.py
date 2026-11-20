@@ -33,6 +33,8 @@ class EvidenceChoice(BaseModel):
     title: str
     source_name: str
     direction: EvidenceDirection
+    location: str
+    category: str
 
 
 class EvidenceChoiceList(BaseModel):
@@ -93,7 +95,12 @@ class MarketDataset:
         return EvidenceChoiceList(
             evidence=[
                 EvidenceChoice(
-                    id=o.id, title=o.title, source_name=o.source_name, direction=o.direction
+                    id=o.id,
+                    title=o.title,
+                    source_name=o.source_name,
+                    direction=o.direction,
+                    location=o.location,
+                    category=o.category,
                 )
                 for o in self._items
             ]

@@ -119,7 +119,8 @@ def test_the_evidence_choices_list_every_dataset_entry_with_only_what_a_picker_n
     entries = response.json()["evidence"]
     assert [e["id"] for e in entries] == [f"PUNE-00{n}" for n in range(1, 6)]
     for entry in entries:
-        assert set(entry) == {"id", "title", "source_name", "direction"}
+        assert set(entry) == {"id", "title", "source_name", "direction", "location", "category"}
+        assert entry["location"] == "Pune" and entry["category"] == "bakery"
     assert {e["id"]: e["direction"] for e in entries}["PUNE-003"] == "against"
 
 

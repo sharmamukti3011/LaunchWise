@@ -68,6 +68,11 @@ describe("ScoreTable and suggestions", () => {
     expect(html.indexOf("Suggested by LaunchWise")).toBeLessThan(html.indexOf("Everyday cakes"));
   });
 
+  it("calls the budget column 'Budget fit' so it is not read as the amount", () => {
+    expect(html).toContain(">Budget fit<");
+    expect(html).not.toContain(">Budget<");
+  });
+
   it("still marks the owner's own idea as theirs", () => {
     expect(html).toContain("(your idea)");
   });

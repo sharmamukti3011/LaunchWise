@@ -1,4 +1,4 @@
-import type { AnalyzeBody, BodyOption, ServerFieldError } from "../api/analyze";
+import type { AnalyzeBody, EvidenceChoice, BodyOption, ServerFieldError } from "../api/analyze";
 import { hasControlOrLineBreak } from "./text";
 
 // ---- the form ---------------------------------------------------------------------------------
@@ -270,4 +270,59 @@ export function mapServerErrors(errors: ServerFieldError[]): FormErrors {
   }
   if (unmapped) mapped.form = GENERAL_ERROR;
   return mapped;
+}
+
+// ---- market evidence that fits the form --------------------------------------------------------
+
+const REGION_WORDS = new Set(["city", "district", "maharashtra", "india"]);
+
+/** "Pune, Maharashtra" and " PUNE City " both become "pune" (the same rule as the server's). */
+function place(value: string): string {
+  const words = value.split(",")[0].toLowerCase().split(/\s+/).filter(Boolean);
+  while (words.length > 1 && REGION_WORDS.has(words[words.length - 1])) words.pop();
+  return words.join(" ");
+}
+
+function kind(value: string): string {
+  return value.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+}
+
+/** The entries for this place and kind of business ("home bakery" is a bakery), and no others. */
+export function evidenceFor(choices: EvidenceChoice[], location: string, category: string): EvidenceChoice[] {
+  const wanted = place(location);
+  const type = kind(category);
+  if (!wanted || !type) return [];
+  return choices.filter((c) => {
+    const have = kind(c.category);
+    return place(c.location) === wanted && have !== "" && (have.includes(type) || type.includes(have));
+  });
+}
+
+/** The evidence id to send: the chosen one only if it still fits the place and business. */
+export function usableEvidenceId(choices: EvidenceChoice[], form: OwnIdeaForm): string {
+  const id = form.alt.evidenceId.trim();
+  return evidenceFor(choices, form.location, form.category).some((c) => c.id === id) ? id : "";
+}
+
+// ---- hours per week ----------------------------------------------------------------------------
+
+export const HOURS_HINT = "Total for the week, e.g. 3 hours a day × 7 days = 21.";
+
+/** Hours the planned output needs: items per day × days per week × minutes per item ÷ 60. */
+function hoursNeeded(form: OwnIdeaForm): number | null {
+  const items = parseWhole(form.unitsPerDay, 10000);
+  const days = parseWhole(form.daysPerWeek, 7);
+  const minutes = parseWhole(form.original.minutes, 1440);
+  if (items === null || days === null || minutes === null) return null;
+  return (items * days * minutes) / 60;
+}
+
+/** A gentle warning (never an error) when the hours entered cannot cover the planned output. */
+export function hoursWarning(form: OwnIdeaForm): string | null {
+  if (form.hoursPerWeek.trim() === "") return null;
+  const hours = parseWhole(form.hoursPerWeek, 168);
+  const needed = hoursNeeded(form);
+  if (hours === null || needed === null || hours >= needed) return null;
+  const shown = Math.ceil(needed);
+  return `That is less than the ${shown} hours a week your items per day, days and minutes per item add up to. You can keep it; the analysis will use what you entered.`;
 }

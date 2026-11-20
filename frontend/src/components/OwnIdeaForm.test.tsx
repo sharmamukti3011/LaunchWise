@@ -9,10 +9,11 @@ import type { IntakeUi } from "./OwnIdeaForm";
 
 const noop = () => undefined;
 const EVIDENCE: EvidenceChoice[] = [
-  { id: "PUNE-001", title: "Home bakers get premium prices", source_name: "YourStory (HerStory)", direction: "supports" },
-  { id: "PUNE-003", title: "Shop rents are high", source_name: "Housing.com", direction: "against" },
+  { id: "PUNE-001", title: "Home bakers get premium prices", source_name: "YourStory (HerStory)", direction: "supports", location: "Pune", category: "bakery" },
+  { id: "PUNE-003", title: "Shop rents are high", source_name: "Housing.com", direction: "against", location: "Pune", category: "bakery" },
 ];
 
+const PUNE_FORM: OwnIdeaForm = { ...EMPTY_FORM, location: "Pune", category: "home bakery" };
 const IDLE_INTAKE: IntakeUi = { text: "", running: false, message: null, unavailable: false };
 
 function render(
@@ -29,7 +30,7 @@ function render(
 ): string {
   return renderToStaticMarkup(
     <OwnIdeaFormView
-      form={over.form ?? EMPTY_FORM}
+      form={over.form ?? PUNE_FORM}
       errors={over.errors ?? {}}
       marks={over.marks ?? {}}
       intake={{ ...IDLE_INTAKE, ...over.intake }}
@@ -97,10 +98,42 @@ describe("Try your own idea", () => {
     expect(render()).toMatch(/neutral 50/);
   });
 
-  it("works with no evidence choices at all", () => {
-    const html = render({ evidence: [] });
-    expect(html).toContain("No market evidence");
-    expect(html.match(/<option/g)).toHaveLength(1);
+  it("hides the dropdown and says so when no entry fits the place", () => {
+    for (const form of [{ ...PUNE_FORM, location: "Noida" }, EMPTY_FORM]) {
+      const html = render({ form });
+      expect(html).not.toContain("<select");
+      expect(html).not.toContain("Market evidence it is based on");
+      expect(html).toContain("No market evidence for this place yet, so the market score is a neutral 50.");
+    }
+    const none = render({ evidence: [] });
+    expect(none).not.toContain('id="own-alt-evidenceId"');
+    expect(none).toContain("a neutral 50.");
+  });
+
+  it("hides the dropdown when the kind of business does not fit", () => {
+    const html = render({ form: { ...PUNE_FORM, category: "high-protein breakfast" } });
+    expect(html).not.toContain("<select");
+  });
+
+  it("lists only the entries that fit, and no others", () => {
+    const other = { id: "MUM-001", title: "Mumbai thing", source_name: "X", direction: "supports" as const, location: "Mumbai", category: "bakery" };
+    const html = render({ evidence: [...EVIDENCE, other], form: { ...PUNE_FORM, location: "pune, Maharashtra" } });
+    expect(html).toContain('value="PUNE-001"');
+    expect(html).not.toContain("MUM-001");
+  });
+
+  it("labels the hours field with a hint and no warning when nothing is wrong", () => {
+    const html = render();
+    expect(html).toContain("Total for the week, e.g. 3 hours a day × 7 days = 21.");
+    expect(html).not.toContain("own-hoursPerWeek-warning");
+  });
+
+  it("shows a gentle, non-blocking warning when the hours are too few", () => {
+    const form = { ...PUNE_FORM, unitsPerDay: "3", daysPerWeek: "2", hoursPerWeek: "5", original: { ...EMPTY_FORM.original, minutes: "100" } };
+    const html = render({ form });
+    expect(html).toMatch(/id="own-hoursPerWeek-warning"[^>]*>That is less than the 10 hours a week/);
+    expect(html).toContain('aria-describedby="own-hoursPerWeek-warning"');
+    expect(html).not.toContain("aria-invalid");
   });
 
   it("shows a fixed message under a field with an error, and links it for screen readers", () => {

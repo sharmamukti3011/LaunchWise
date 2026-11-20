@@ -5,7 +5,7 @@ import { SourceTag } from "./SourceTag";
 
 const DIMENSIONS: { key: DimensionScore["dimension"]; label: string }[] = [
   { key: "margin", label: "Margin" },
-  { key: "budget", label: "Budget" },
+  { key: "budget", label: "Budget fit" },
   { key: "capacity", label: "Capacity" },
   { key: "skill_equipment", label: "Skills & equipment" },
   { key: "market_signal", label: "Market signal" },

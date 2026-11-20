@@ -4,10 +4,13 @@ import {
   FIELD_TEXT,
   GENERAL_ERROR,
   buildAnalyzeBody,
+  evidenceFor,
+  hoursWarning,
   mapServerErrors,
   parseMoney,
   setField,
   serverFieldToKey,
+  usableEvidenceId,
   validateOwnIdea,
 } from "./ownIdea";
 import type { OwnIdeaForm } from "./ownIdea";
@@ -280,5 +283,52 @@ describe("setField", () => {
     const alt = setField(EMPTY_FORM, "alt.evidenceId", "PUNE-001").alt;
     expect(alt.evidenceId).toBe("PUNE-001");
     expect(setField(EMPTY_FORM, "alt.title", "X").original.title).toBe("");
+  });
+});
+
+describe("evidenceFor", () => {
+  const choice = (id: string, location: string, category: string) => ({
+    id, title: id, source_name: "s", direction: "supports" as const, location, category,
+  });
+  const all = [choice("A", "Pune", "bakery"), choice("B", "Mumbai", "bakery"), choice("C", "Pune", "tailoring")];
+
+  it("keeps entries for the same place and kind of business", () => {
+    expect(evidenceFor(all, " PUNE City ", "Home Bakery").map((c) => c.id)).toEqual(["A"]);
+  });
+
+  it("returns nothing when the place or the business is missing or unknown", () => {
+    expect(evidenceFor(all, "", "bakery")).toEqual([]);
+    expect(evidenceFor(all, "Pune", "")).toEqual([]);
+    expect(evidenceFor(all, "Noida", "bakery")).toEqual([]);
+    expect(evidenceFor(all, "Pune", "high-protein breakfast")).toEqual([]);
+  });
+
+  it("drops a chosen id that no longer fits when the form is sent", () => {
+    const form = { ...EMPTY_FORM, location: "Noida", category: "bakery", alt: { ...EMPTY_FORM.alt, evidenceId: "A" } };
+    expect(usableEvidenceId(all, form)).toBe("");
+    expect(usableEvidenceId(all, { ...form, location: "Pune" })).toBe("A");
+  });
+});
+
+describe("hoursWarning", () => {
+  const form = (hours: string, units = "3", days = "2", minutes = "100"): OwnIdeaForm => ({
+    ...EMPTY_FORM, unitsPerDay: units, daysPerWeek: days, hoursPerWeek: hours,
+    original: { ...EMPTY_FORM.original, minutes },
+  });
+
+  it("warns when hours are below items × days × minutes ÷ 60 (3 × 2 × 100 ÷ 60 = 10)", () => {
+    expect(hoursWarning(form("9"))).toContain("less than the 10 hours");
+  });
+
+  it("does not warn at or above the need, or when anything is blank or invalid", () => {
+    expect(hoursWarning(form("10"))).toBeNull();
+    expect(hoursWarning(form("21"))).toBeNull();
+    expect(hoursWarning(form(""))).toBeNull();
+    expect(hoursWarning(form("5", "3", "2", ""))).toBeNull();
+    expect(hoursWarning(form("5", "x"))).toBeNull();
+  });
+
+  it("is not a validation error", () => {
+    expect(validateOwnIdea(form("1")).hoursPerWeek).toBeUndefined();
   });
 });

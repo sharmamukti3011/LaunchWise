@@ -102,6 +102,8 @@ export interface EvidenceChoice {
   title: string;
   source_name: string;
   direction: "supports" | "against";
+  location: string;
+  category: string;
 }
 
 /** The dataset entries an alternative can be based on. A failure just means no choices. */

@@ -4,9 +4,13 @@ import { AnalyzeFailure, FAILURE_TEXT, analyzeOwn, fetchEvidenceChoices } from "
 import type { EvidenceChoice } from "../api/analyze";
 import {
   EMPTY_FORM,
+  HOURS_HINT,
   buildAnalyzeBody,
+  evidenceFor,
+  hoursWarning,
   mapServerErrors,
   setField,
+  usableEvidenceId,
   validateOwnIdea,
 } from "../lib/ownIdea";
 import type { FieldKey, FormErrors, OwnIdeaForm } from "../lib/ownIdea";
@@ -19,12 +23,15 @@ import { applySuggestion } from "../lib/suggestion";
 import type { SuggestionInfo } from "../api/demo";
 import type { ResultView } from "../lib/results";
 
+const NO_EVIDENCE_TEXT = "No market evidence for this place yet, so the market score is a neutral 50.";
 const INPUT = "mt-1 w-full rounded border border-slate-300 px-3 py-2 text-slate-900";
 
 interface FieldProps {
   id: string;
   label: string;
   hint?: string;
+  /** A gentle note under the field. It never blocks the form. */
+  warning?: string | null;
   error?: string;
   mark?: Mark;
   children: (aria: { "aria-invalid"?: true; "aria-describedby"?: string }) => ReactNode;
@@ -40,10 +47,11 @@ const MARK_STYLE: Record<Mark, string> = {
 };
 
 /** A label, a hint, the control, and a fixed error message linked to it for screen readers. */
-function Field({ id, label, hint, error, mark, children }: FieldProps) {
+function Field({ id, label, hint, warning, error, mark, children }: FieldProps) {
   const errorId = `${id}-error`;
+  const warningId = `${id}-warning`;
   const markId = `${id}-mark`;
-  const describedBy = [error ? errorId : null, mark ? markId : null].filter(Boolean).join(" ");
+  const describedBy = [error ? errorId : null, warning ? warningId : null, mark ? markId : null].filter(Boolean).join(" ");
   const aria: { "aria-invalid"?: true; "aria-describedby"?: string } = {};
   if (error) aria["aria-invalid"] = true;
   if (describedBy) aria["aria-describedby"] = describedBy;
@@ -59,6 +67,11 @@ function Field({ id, label, hint, error, mark, children }: FieldProps) {
       )}
       {hint && <p className="text-xs text-slate-500">{hint}</p>}
       {children(aria)}
+      {warning && (
+        <p id={warningId} role="status" className="mt-1 text-sm text-amber-900">
+          {warning}
+        </p>
+      )}
       {error && (
         <p id={errorId} className="mt-1 text-sm text-red-800">
           {error}
@@ -111,6 +124,7 @@ export function OwnIdeaFormView({
   notice,
   detailsRef,
 }: ViewProps) {
+  const fitting = evidenceFor(evidence, form.location, form.category);
   const text = (key: FieldKey, id: string, value: string, extra: Record<string, unknown> = {}) =>
     function Input(aria: object) {
       return (
@@ -225,7 +239,8 @@ export function OwnIdeaFormView({
             <Field
               id="own-hoursPerWeek"
               label="Hours per week (optional)"
-              hint="Leave blank and we will assume it and say so."
+              hint={`Leave blank and we will assume it and say so. ${HOURS_HINT}`}
+              warning={hoursWarning(form)}
               error={errors.hoursPerWeek} mark={marks.hoursPerWeek}
             >
               {whole("hoursPerWeek", "own-hoursPerWeek", form.hoursPerWeek)}
@@ -250,29 +265,35 @@ export function OwnIdeaFormView({
         <fieldset className="space-y-3">
           <legend className="font-medium">One alternative (optional)</legend>
           {option("alt", form.alt, "Alternative idea")}
-          <Field
-            id="own-alt-evidenceId"
-            label="Market evidence it is based on"
-            hint="Optional. With no market evidence, its market score is a neutral 50."
-            error={errors["alt.evidenceId"]}
-          >
-            {(aria) => (
-              <select
-                id="own-alt-evidenceId"
-                value={form.alt.evidenceId}
-                onChange={(e) => onChange("alt.evidenceId", e.target.value)}
-                className={INPUT}
-                {...aria}
-              >
-                <option value="">No market evidence</option>
-                {evidence.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {`${entry.title} (${entry.source_name})${entry.direction === "against" ? " · argues against" : ""}`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+          {fitting.length === 0 ? (
+            <p id="own-alt-evidenceId-none" role="status" className="text-sm text-slate-700">
+              {NO_EVIDENCE_TEXT}
+            </p>
+          ) : (
+            <Field
+              id="own-alt-evidenceId"
+              label="Market evidence it is based on"
+              hint="Optional. With no market evidence, its market score is a neutral 50."
+              error={errors["alt.evidenceId"]}
+            >
+              {(aria) => (
+                <select
+                  id="own-alt-evidenceId"
+                  value={form.alt.evidenceId}
+                  onChange={(e) => onChange("alt.evidenceId", e.target.value)}
+                  className={INPUT}
+                  {...aria}
+                >
+                  <option value="">No market evidence</option>
+                  {fitting.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {`${entry.title} (${entry.source_name})${entry.direction === "against" ? " · argues against" : ""}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          )}
         </fieldset>
 
         {notice && (
@@ -405,7 +426,7 @@ export function OwnIdeaSection({
     }
     setErrors({});
     setRunning(true);
-    const body = buildAnalyzeBody(form);
+    const body = buildAnalyzeBody({ ...form, alt: { ...form.alt, evidenceId: usableEvidenceId(evidence, form) } });
     try {
       onResult(ownResult(body, await analyzeOwn(body)));
     } catch (error) {
