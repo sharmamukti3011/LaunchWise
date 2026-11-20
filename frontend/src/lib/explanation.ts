@@ -15,3 +15,6 @@ export function panelCopy(explanation: Explanation): PanelCopy {
   }
   return { title: "Explanation", badge: "Standard explanation, not AI" };
 }
+
+/** Shown only under text Claude wrote, never under the standard (template) wording. */
+export const AI_NOTICE = "Claude can make mistakes. Check the figures before you rely on them.";

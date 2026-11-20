@@ -219,6 +219,14 @@ describe("Describe your idea", () => {
     expect(render({ intake: { text: "hello" } })).toContain("5 / 1,500");
   });
 
+  it("adds the AI notice only under a message Claude's draft produced", () => {
+    const notice = "Claude can make mistakes. Check the figures before you rely on them.";
+    expect(render({ intake: { message: { kind: "info", text: "Filled.", ai: true } } })).toContain(notice);
+    expect(render({ intake: { message: { kind: "info", text: "Filled." } } })).not.toContain(notice);
+    expect(render({ intake: { message: { kind: "error", text: "No." } } })).not.toContain(notice);
+    expect(render()).not.toContain(notice);
+  });
+
   it("shows a message after filling, as a status, and an error as an alert", () => {
     const ok = render({ intake: { message: { kind: "info", text: "We filled in what you described." } } });
     expect(ok).toMatch(/role="status"[^>]*>[^<]*We filled in/);

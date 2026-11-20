@@ -71,7 +71,7 @@ def test_the_page_adapts_to_dark_mode_and_phone_width() -> None:
 
 def test_the_page_has_the_normal_footer_and_is_not_indexed() -> None:
     html = PAGE.read_text()
-    assert "Hosted on GoDaddy · Built with Claude" in html
+    assert "Hosted on GoDaddy · Powered by Claude" in html
     assert 'href="/#contact"' in html  # the contact section lives on the home page
     assert '<meta name="robots" content="noindex"' in html
 

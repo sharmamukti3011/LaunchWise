@@ -17,6 +17,7 @@ import type { FieldKey, FormErrors, OwnIdeaForm } from "../lib/ownIdea";
 import { MAX_DESCRIPTION, clearMark } from "../lib/intakeDraft";
 import type { Mark, Marks } from "../lib/intakeDraft";
 import { fillFromDescription } from "../lib/intakeFlow";
+import { AI_NOTICE } from "../lib/explanation";
 import { revealContact } from "../lib/contactPanel";
 import { ownResult } from "../lib/results";
 import { applySuggestion } from "../lib/suggestion";
@@ -84,7 +85,7 @@ function Field({ id, label, hint, warning, error, mark, children }: FieldProps) 
 export interface IntakeUi {
   text: string;
   running: boolean;
-  message: { kind: "info" | "error"; text: string } | null;
+  message: { kind: "info" | "error"; text: string; ai?: boolean } | null;
   /** True once the server said describing is not available, so the button stays off. */
   unavailable: boolean;
 }
@@ -219,6 +220,7 @@ export function OwnIdeaFormView({
             {intake.message.text}
           </p>
         )}
+        {intake.message?.ai && <p className="mt-1 text-xs text-slate-600">{AI_NOTICE}</p>}
       </section>
       <form onSubmit={onSubmit} aria-busy={running} noValidate className="mt-4 space-y-6">
         <fieldset className="space-y-3">
@@ -409,7 +411,7 @@ export function OwnIdeaSection({
         ...current,
         running: false,
         unavailable: outcome.unavailable,
-        message: { kind: outcome.kind === "drafted" ? "info" : "error", text: outcome.message },
+        message: { kind: outcome.kind === "drafted" ? "info" : "error", text: outcome.message, ai: outcome.kind === "drafted" },
       }));
     } catch {
       setIntake((current) => ({ ...current, running: false })); // aborted: nothing to show

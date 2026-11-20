@@ -1,5 +1,5 @@
 import type { Explanation } from "../api/demo";
-import { ENGINE_NOTE, panelCopy } from "../lib/explanation";
+import { AI_NOTICE, ENGINE_NOTE, panelCopy } from "../lib/explanation";
 
 export type ExplanationState =
   | { status: "loading" }
@@ -49,6 +49,7 @@ export function ExplanationPanel({ state }: { state: ExplanationState }) {
       </div>
       <p className="mt-2 text-slate-800">{state.explanation.summary}</p>
       <p className="mt-3 text-xs text-slate-600">{ENGINE_NOTE}</p>
+      {ai && <p className="mt-1 text-xs text-slate-600">{AI_NOTICE}</p>}
     </section>
   );
 }

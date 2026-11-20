@@ -6,7 +6,7 @@ describe("Footer", () => {
   const html = renderToStaticMarkup(<Footer />);
 
   it("says where it is hosted and what it is built with", () => {
-    expect(html).toContain("Hosted on GoDaddy · Built with Claude");
+    expect(html).toContain("Hosted on GoDaddy · Powered by Claude");
   });
 
   it("has a contact link to #contact (the form comes next)", () => {
