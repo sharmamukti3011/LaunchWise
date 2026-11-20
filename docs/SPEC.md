@@ -43,7 +43,7 @@ Behavior: the original idea is always an option; the agent can recommend keeping
 
 ## Storefront and contact form
 - Template renders brand, tagline, products, prices, availability, capacity note, contact form from StorefrontConfig. It is business-agnostic: no cake or bakery wording, so any business (a Noida high-protein breakfast service, say) can be approved and deployed the same way.
-- Form: validate, rate limit, honeypot, prevent header injection, send to the Titan mailbox via SMTP with credentials from env vars. Test end to end on the real server early.
+- Form: validate, rate limit, honeypot, prevent header injection, send to the GoDaddy mailbox via SMTP with credentials from env vars. Test end to end on the real server early.
 
 ## Starter pages (`/s/<slug>`)
 - Flow: preview (draft in memory, 30 minutes, approval requested for the exact config hash) -> "Approve and publish" -> live. One explicit publish click grants both approvals (strategy, then launch) server-side; each is audited. The DeployGuard consumes the launch approval and refuses without a matching one; the deployer stores the page.
@@ -64,7 +64,7 @@ Behavior: the original idea is always an option; the agent can recommend keeping
 3. App deployed on the VPS.
 4. Own domain bought and pointed at the app.
 5. HTTPS works.
-6. Titan mailbox created, test email received.
+6. GoDaddy mailbox created, test email received.
 7. Contact form delivers to the mailbox.
 8. Mailbox password not in code or repo.
 
