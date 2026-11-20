@@ -303,6 +303,16 @@ describe("evidenceFor", () => {
     expect(evidenceFor(all, "Pune", "high-protein breakfast")).toEqual([]);
   });
 
+  it("offers nothing for Khurja bakery, where the dataset has only Pune entries", () => {
+    expect(evidenceFor(all, "Khurja", "bakery")).toEqual([]);
+    expect(evidenceFor(all, "Khurja, Uttar Pradesh", "Bakery")).toEqual([]);
+  });
+
+  it("offers nothing, and does not throw, for an entry that lacks a place or a business", () => {
+    const old = [{ id: "OLD", title: "t", source_name: "s", direction: "supports" }] as unknown as typeof all;
+    expect(evidenceFor(old, "Pune", "bakery")).toEqual([]);
+  });
+
   it("drops a chosen id that no longer fits when the form is sent", () => {
     const form = { ...EMPTY_FORM, location: "Noida", category: "bakery", alt: { ...EMPTY_FORM.alt, evidenceId: "A" } };
     expect(usableEvidenceId(all, form)).toBe("");

@@ -277,14 +277,14 @@ export function mapServerErrors(errors: ServerFieldError[]): FormErrors {
 const REGION_WORDS = new Set(["city", "district", "maharashtra", "india"]);
 
 /** "Pune, Maharashtra" and " PUNE City " both become "pune" (the same rule as the server's). */
-function place(value: string): string {
-  const words = value.split(",")[0].toLowerCase().split(/\s+/).filter(Boolean);
+function place(value: string | undefined): string {
+  const words = (value ?? "").split(",")[0].toLowerCase().split(/\s+/).filter(Boolean);
   while (words.length > 1 && REGION_WORDS.has(words[words.length - 1])) words.pop();
   return words.join(" ");
 }
 
-function kind(value: string): string {
-  return value.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+function kind(value: string | undefined): string {
+  return (value ?? "").toLowerCase().split(/\s+/).filter(Boolean).join(" ");
 }
 
 /** The entries for this place and kind of business ("home bakery" is a bakery), and no others. */

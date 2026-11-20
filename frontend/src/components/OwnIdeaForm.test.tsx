@@ -110,6 +110,14 @@ describe("Try your own idea", () => {
     expect(none).toContain("a neutral 50.");
   });
 
+  it("hides the dropdown for Khurja bakery, even with Pune entries loaded and one chosen", () => {
+    const form = { ...PUNE_FORM, location: "Khurja", category: "bakery", alt: { ...EMPTY_FORM.alt, evidenceId: "PUNE-001" } };
+    const html = render({ form });
+    expect(html).not.toContain("<select");
+    expect(html).not.toContain("PUNE-001");
+    expect(html).toContain("No market evidence for this place yet, so the market score is a neutral 50.");
+  });
+
   it("hides the dropdown when the kind of business does not fit", () => {
     const html = render({ form: { ...PUNE_FORM, category: "high-protein breakfast" } });
     expect(html).not.toContain("<select");
