@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from app.schemas.storefront import StorefrontConfig
-from app.services.storefront_render import STYLESHEET_PATH, render_page
+from app.services.storefront_render import ICON_LINKS, STYLESHEET_PATH, render_page
 
 D = Decimal
 ALLOWED_TAGS = {
@@ -108,10 +108,15 @@ def test_no_inline_styles_or_event_handlers_because_the_site_forbids_them() -> N
     assert not any(name.startswith("on") for name in names)
 
 
-def test_the_only_links_are_our_stylesheet_and_the_footer_link_home() -> None:
+def test_the_only_links_are_our_stylesheet_our_icons_and_the_footer_link_home() -> None:
     page = parse(render_page(config()))
     links = [(tag, name, value) for tag, name, value in page.attrs if name in ("href", "src")]
-    assert sorted(links) == sorted([("link", "href", STYLESHEET_PATH), ("a", "href", "/")])
+    icons = [("link", "href", href) for _, href in ICON_LINKS]
+    expected = [("link", "href", STYLESHEET_PATH), ("a", "href", "/"), *icons]
+    assert sorted(links) == sorted(expected)
+    assert all(
+        href is not None and href.startswith("/") for _, _, href in links
+    )  # all local, none off-site
     assert page.tags.count("a") == 1
 
 

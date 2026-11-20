@@ -121,7 +121,11 @@ export default function App() {
   return (
     <div className="flex min-h-dvh flex-col">
       <main className="mx-auto w-full max-w-4xl flex-1 p-4 sm:p-8">
-        <h1 className="text-3xl font-semibold">LaunchWise</h1>
+        <h1 className="flex items-center gap-3 text-3xl font-semibold">
+          {/* Decorative: the text beside it already names the site. */}
+          <img src="/icon-192.png" alt="" width={32} height={32} className="h-8 w-8" />
+          LaunchWise
+        </h1>
         <p className="mt-2 text-slate-600">
           Test a business idea against your real budget, time and skills before
           you spend anything.

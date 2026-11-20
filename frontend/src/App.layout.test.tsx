@@ -6,7 +6,7 @@ describe("page layout", () => {
   const html = renderToStaticMarkup(<App />);
 
   it("is a full-height flex column, with the main area growing and the footer last", () => {
-    const wrapper = /^<div class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
+    const wrapper = /^(?:<link [^>]*>)*<div class="([^"]*)"/.exec(html)?.[1].split(" ") ?? [];
     expect(wrapper).toEqual(expect.arrayContaining(["flex", "flex-col", "min-h-dvh"]));
     expect(html).toMatch(/<main class="[^"]*\bflex-1\b/);
     expect(html.indexOf("<main")).toBeLessThan(html.indexOf("<footer"));
@@ -24,9 +24,24 @@ describe("page layout", () => {
 
   it("does not pin the footer with fixed or sticky positioning", () => {
     // Only the page structure is checked: the contact form's off-screen honeypot is absolute.
-    const wrapper = /^<div class="([^"]*)"/.exec(html)?.[1] ?? "";
+    const wrapper = /^(?:<link [^>]*>)*<div class="([^"]*)"/.exec(html)?.[1] ?? "";
     const footer = /<footer class="([^"]*)"/.exec(html)?.[1] ?? "";
     expect(wrapper).not.toMatch(/\b(fixed|sticky|absolute)\b/);
     expect(footer).not.toMatch(/\b(fixed|sticky|absolute)\b/);
+  });
+});
+
+describe("logo", () => {
+  const html = renderToStaticMarkup(<App />);
+
+  it("shows the logo mark next to the heading, small and decorative", () => {
+    const heading = /<h1[^>]*>(.*?)<\/h1>/.exec(html)?.[1] ?? "";
+    expect(heading).toMatch(/<img[^>]*src="\/icon-192\.png"[^>]*alt=""/);
+    expect(heading).toMatch(/width="32"[^>]*height="32"|height="32"[^>]*width="32"/);
+    expect(heading).toContain("LaunchWise");
+  });
+
+  it("loads images only from this site", () => {
+    for (const src of html.match(/<img[^>]*src="([^"]+)"/g) ?? []) expect(src).toMatch(/src="\//);
   });
 });

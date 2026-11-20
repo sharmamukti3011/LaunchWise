@@ -13,6 +13,13 @@ from app.schemas.storefront import Product, StorefrontConfig
 from app.services.scoring import rupees
 
 STYLESHEET_PATH = "/api/storefront/style.css"
+# The site's own icons, served by Caddy from the built frontend. Local paths only.
+ICON_LINKS = (
+    ("icon", "/favicon.ico"),
+    ("icon", "/favicon-32.png"),
+    ("apple-touch-icon", "/apple-touch-icon.png"),
+)
+_ICON_TAGS = "".join(f'<link rel="{rel}" href="{href}">\n' for rel, href in ICON_LINKS)
 BANNER_TEXT = "Example page made with LaunchWise"
 FOOTER_TEXT = "Made with LaunchWise"
 FSSAI_NOTE = "Selling food from home requires FSSAI registration before you start."
@@ -73,6 +80,7 @@ def render_page(config: StorefrontConfig) -> str:
         '<meta name="color-scheme" content="light dark">\n'
         '<meta name="robots" content="noindex, nofollow">\n'
         f"<title>{_text(config.brand)} · Example page</title>\n"
+        f"{_ICON_TAGS}"
         f'<link rel="stylesheet" href="{STYLESHEET_PATH}">\n'
         "</head>\n"
         "<body>\n"
@@ -109,6 +117,7 @@ def render_unavailable() -> str:
         '<meta name="color-scheme" content="light dark">\n'
         '<meta name="robots" content="noindex, nofollow">\n'
         "<title>Page not available · LaunchWise</title>\n"
+        f"{_ICON_TAGS}"
         f'<link rel="stylesheet" href="{STYLESHEET_PATH}">\n'
         "</head>\n"
         "<body>\n"
